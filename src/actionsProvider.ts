@@ -25,7 +25,7 @@ export class SectionItem extends vscode.TreeItem {
   constructor(public readonly sectionName: string) {
     super(sectionName, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'section';
-    this.iconPath = new vscode.ThemeIcon('list-tree');
+    this.iconPath = new vscode.ThemeIcon('folder');
   }
 }
 
@@ -35,7 +35,7 @@ export class ActionItem extends vscode.TreeItem {
     status: ActionExecutionStatus
   ) {
     super(action.name, vscode.TreeItemCollapsibleState.None);
-    this.contextValue = status === 'idle' ? 'action' : 'action:executed';
+    this.contextValue = getContextValue(action, status);
     this.description = getSubtextForAction(action);
     this.tooltip = buildTooltip(action, status);
     this.iconPath = getIconForStatus(status);
@@ -164,4 +164,11 @@ function getStatusLabel(status: ActionExecutionStatus): string {
     default:
       return vscode.l10n.t('Idle');
   }
+}
+
+function getContextValue(action: Action, status: ActionExecutionStatus): string {
+  if (action.confirmBeforeRun) {
+    return status === 'idle' ? 'action:confirm' : 'action:confirm:executed';
+  }
+  return status === 'idle' ? 'action' : 'action:executed';
 }

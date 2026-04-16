@@ -128,13 +128,21 @@ export function activate(context: vscode.ExtensionContext): void {
   // Commands
   // ------------------------------------------------------------------
 
+  const runActionItem = async (item: ActionItem): Promise<void> => {
+    await terminalManager.runAction(item.action);
+  };
+
   context.subscriptions.push(
     // Run an action from the Actions view
     vscode.commands.registerCommand(
       'localTerminalActions.runAction',
-      async (item: ActionItem) => {
-        await terminalManager.runAction(item.action);
-      }
+      runActionItem
+    ),
+
+    // Run an action that requires confirmation (separate icon for inline action)
+    vscode.commands.registerCommand(
+      'localTerminalActions.runActionWithConfirm',
+      runActionItem
     ),
 
     vscode.commands.registerCommand(
@@ -303,27 +311,59 @@ export function activate(context: vscode.ExtensionContext): void {
       'localTerminalActions.selectTreeSubtextMode',
       async () => {
         const current = getTreeSubtextMode();
-        const selection = await vscode.window.showQuickPick(
-          [
-            {
-              label: vscode.l10n.t('Show command'),
-              description: current === 'command' ? vscode.l10n.t('Current') : undefined,
-              mode: 'command' as const,
-            },
-            {
-              label: vscode.l10n.t('Show description'),
-              description: current === 'description' ? vscode.l10n.t('Current') : undefined,
-              mode: 'description' as const,
-            },
-            {
-              label: vscode.l10n.t('Hide subtext'),
-              description: current === 'hidden' ? vscode.l10n.t('Current') : undefined,
-              mode: 'hidden' as const,
-            },
-          ],
+        type SubtextModeQuickPickItem = vscode.QuickPickItem & {
+          mode: TreeSubtextMode;
+        };
+        const items: SubtextModeQuickPickItem[] = [
           {
-            title: vscode.l10n.t('Subtext mode'),
-            placeHolder: vscode.l10n.t('Choose how subtext is shown in the tree'),
+            label: vscode.l10n.t('Show command'),
+            description: current === 'command' ? vscode.l10n.t('Current') : undefined,
+            mode: 'command',
+          },
+          {
+            label: vscode.l10n.t('Show description'),
+            description: current === 'description' ? vscode.l10n.t('Current') : undefined,
+            mode: 'description',
+          },
+          {
+            label: vscode.l10n.t('Hide subtext'),
+            description: current === 'hidden' ? vscode.l10n.t('Current') : undefined,
+            mode: 'hidden',
+          },
+        ];
+
+        const selection = await new Promise<SubtextModeQuickPickItem | undefined>(
+          resolve => {
+            let settled = false;
+            const finish = (value: SubtextModeQuickPickItem | undefined): void => {
+              if (settled) {
+                return;
+              }
+              settled = true;
+              resolve(value);
+            };
+
+            const qp = vscode.window.createQuickPick<SubtextModeQuickPickItem>();
+            qp.title = vscode.l10n.t('Subtext mode');
+            qp.placeholder = vscode.l10n.t('Choose how subtext is shown in the tree');
+            qp.items = items;
+
+            const currentItem = items.find(item => item.mode === current);
+            if (currentItem) {
+              qp.activeItems = [currentItem];
+            }
+
+            qp.onDidAccept(() => {
+              finish(qp.selectedItems[0]);
+              qp.dispose();
+            });
+
+            qp.onDidHide(() => {
+              qp.dispose();
+              finish(undefined);
+            });
+
+            qp.show();
           }
         );
         if (!selection) {

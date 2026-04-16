@@ -52,7 +52,7 @@ export class SettingSectionItem extends vscode.TreeItem {
   ) {
     super(sectionName, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = `section:${position}`;
-    this.iconPath = new vscode.ThemeIcon('list-tree');
+    this.iconPath = new vscode.ThemeIcon('folder');
   }
 }
 

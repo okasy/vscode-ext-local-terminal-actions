@@ -9,6 +9,7 @@
   "viewsWelcome.setting.noWorkspace": "No workspace folder is open.\n[Open Folder](command:vscode.openFolder)",
   "viewsWelcome.setting.noActions": "No actions configured yet.",
   "commands.runAction.title": "Run Action",
+  "commands.runActionWithConfirm.title": "Run Action (Confirm)",
   "commands.focusActionTerminal.title": "Focus Terminal",
   "commands.closeActionTerminal.title": "Close Terminal",
   "commands.addAction.title": "Add Action",

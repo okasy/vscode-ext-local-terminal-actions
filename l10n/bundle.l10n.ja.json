@@ -12,7 +12,7 @@
   "Delete": "削除",
   "Action \"{0}\" deleted.": "アクション \"{0}\" を削除しました。",
   "Select a section or type a new name": "セクションを選択するか、新しい名前を入力してください",
-  "{0} (Step {1}/{2})": "{0} ({1}/{2})",
+  "{0} (Step {1}/{2})": "{0} (Step {1}/{2})",
   "Section": "セクション",
   "(new section)": "(新規セクション)",
   "Action Name": "アクション名",

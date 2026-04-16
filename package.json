@@ -4,6 +4,12 @@
   "description": "%extension.description%",
   "version": "0.1.0",
   "publisher": "okasy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/okasy/vscode-ext-local-terminal-actions.git"
+  },
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -41,12 +47,6 @@
         "fileMatch": ".vscode/actions.json",
         "url": "./schemas/actions.schema.json"
       }
-      ,
-      {
-        "command": "localTerminalActions.initActionsFile",
-        "title": "%commands.initActionsFile.title%",
-        "icon": "$(file-add)"
-      }
     ],
     "viewsWelcome": [
       {
@@ -74,7 +74,18 @@
       {
         "command": "localTerminalActions.runAction",
         "title": "%commands.runAction.title%",
-        "icon": "$(play)"
+        "icon": {
+          "light": "images/run-light.svg",
+          "dark": "images/run-dark.svg"
+        }
+      },
+      {
+        "command": "localTerminalActions.runActionWithConfirm",
+        "title": "%commands.runActionWithConfirm.title%",
+        "icon": {
+          "light": "images/run-confirm-light.svg",
+          "dark": "images/run-confirm-dark.svg"
+        }
       },
       {
         "command": "localTerminalActions.focusActionTerminal",
@@ -140,6 +151,11 @@
         "command": "localTerminalActions.selectTreeSubtextMode",
         "title": "%commands.selectTreeSubtextMode.title%",
         "icon": "$(list-selection)"
+      },
+      {
+        "command": "localTerminalActions.initActionsFile",
+        "title": "%commands.initActionsFile.title%",
+        "icon": "$(file-add)"
       }
     ],
     "configuration": {
@@ -182,13 +198,18 @@
           "group": "inline"
         },
         {
+          "command": "localTerminalActions.runActionWithConfirm",
+          "when": "view == localTerminalActions.actions && (viewItem == action:confirm || viewItem == action:confirm:executed)",
+          "group": "inline"
+        },
+        {
           "command": "localTerminalActions.focusActionTerminal",
-          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "when": "view == localTerminalActions.actions && (viewItem == action:executed || viewItem == action:confirm:executed)",
           "group": "inline"
         },
         {
           "command": "localTerminalActions.closeActionTerminal",
-          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "when": "view == localTerminalActions.actions && (viewItem == action:executed || viewItem == action:confirm:executed)",
           "group": "inline"
         },
         {
@@ -222,13 +243,18 @@
           "group": "1_action"
         },
         {
+          "command": "localTerminalActions.runActionWithConfirm",
+          "when": "view == localTerminalActions.actions && (viewItem == action:confirm || viewItem == action:confirm:executed)",
+          "group": "1_action"
+        },
+        {
           "command": "localTerminalActions.focusActionTerminal",
-          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "when": "view == localTerminalActions.actions && (viewItem == action:executed || viewItem == action:confirm:executed)",
           "group": "1_action"
         },
         {
           "command": "localTerminalActions.closeActionTerminal",
-          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "when": "view == localTerminalActions.actions && (viewItem == action:executed || viewItem == action:confirm:executed)",
           "group": "1_action"
         },
         {

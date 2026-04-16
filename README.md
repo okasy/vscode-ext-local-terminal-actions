@@ -1,8 +1,21 @@
 # Terminal Actions
 
+[![Version](https://img.shields.io/visual-studio-marketplace/v/okasy.local-terminal-actions?label=Version)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
+
 ターミナルで任意のコマンドをワンボタンで起動させられるようになる VS Code 拡張です。
 
 登録したコマンドはプロジェクトの `.vscode/actions.json` に保存され、チームで共有できます。
+
+Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions
+
+---
+
+## インストール
+
+- VS Code Marketplace からインストール:
+  https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions
+- VS Code のクイックオープン（`Cmd+P`）で次を実行:
+  `ext install okasy.local-terminal-actions`
 
 ---
 

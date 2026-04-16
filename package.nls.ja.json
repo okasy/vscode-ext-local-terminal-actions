@@ -9,6 +9,7 @@
   "viewsWelcome.setting.noWorkspace": "ワークスペースフォルダーが開かれていません。\n[フォルダーを開く](command:vscode.openFolder)",
   "viewsWelcome.setting.noActions": "まだアクションが設定されていません。",
   "commands.runAction.title": "アクションを実行",
+  "commands.runActionWithConfirm.title": "アクションを実行（確認あり）",
   "commands.focusActionTerminal.title": "ターミナルにフォーカス",
   "commands.closeActionTerminal.title": "ターミナルを閉じる",
   "commands.addAction.title": "アクションを追加",

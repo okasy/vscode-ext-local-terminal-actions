@@ -195,23 +195,9 @@ async function pickOrCreateSection(
     qp.placeholder = vscode.l10n.t('Select a section or type a new name');
     qp.title = buildStepTitle(vscode.l10n.t('Section'), step, totalSteps);
     const defaultSection = 'common';
-    qp.items = existingSections.map(s => ({ label: s }));
-    if (existingSections.length === 0) {
-      qp.items = [
-        {
-          label: defaultSection,
-          description: vscode.l10n.t('(new section)'),
-        },
-      ];
-      if (!defaultValue) {
-        qp.value = defaultSection;
-      }
-    }
-    if (defaultValue) {
-      qp.value = defaultValue;
-    }
 
-    qp.onDidChangeValue(value => {
+    /** items を更新し、value に一致する項目を activeItems にセットする */
+    const updateItems = (value: string): void => {
       const filtered = existingSections
         .filter(s => s.toLowerCase().includes(value.toLowerCase()))
         .map(s => ({ label: s }));
@@ -226,12 +212,86 @@ async function pickOrCreateSection(
       } else {
         qp.items = filtered;
       }
+      const match = qp.items.find(
+        i => i.label.toLowerCase() === value.trim().toLowerCase()
+      );
+      if (match) {
+        qp.activeItems = [match];
+      }
+    };
+
+    if (existingSections.length === 0) {
+      qp.items = [
+        {
+          label: defaultSection,
+          description: vscode.l10n.t('(new section)'),
+        },
+      ];
+    } else {
+      qp.items = existingSections.map(s => ({ label: s }));
+    }
+
+    const initialValue = defaultValue ?? (existingSections.length === 0 ? defaultSection : '');
+    if (initialValue) {
+      qp.value = initialValue;
+      updateItems(initialValue);
+    }
+
+    qp.onDidChangeValue(value => {
+      updateItems(value);
     });
 
     qp.onDidAccept(() => {
       const value =
         qp.selectedItems[0]?.label ?? qp.value.trim();
       finish(value || undefined);
+      qp.dispose();
+    });
+
+    qp.onDidHide(() => {
+      qp.dispose();
+      finish(undefined);
+    });
+
+    qp.show();
+  });
+}
+
+/**
+ * Shows a single-select QuickPick with the item marked `picked: true` pre-highlighted.
+ * `vscode.window.showQuickPick` ignores `picked` in single-select mode, so we use
+ * the lower-level `createQuickPick()` API and set `activeItems` explicitly.
+ */
+async function showQuickPickWithDefault(
+  items: vscode.QuickPickItem[],
+  options: { title?: string; placeHolder?: string }
+): Promise<vscode.QuickPickItem | undefined> {
+  return new Promise<vscode.QuickPickItem | undefined>(resolve => {
+    let settled = false;
+    const finish = (value: vscode.QuickPickItem | undefined): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const qp = vscode.window.createQuickPick();
+    if (options.title) {
+      qp.title = options.title;
+    }
+    if (options.placeHolder) {
+      qp.placeholder = options.placeHolder;
+    }
+    qp.items = items;
+
+    const defaultItem = items.find(i => i.picked);
+    if (defaultItem) {
+      qp.activeItems = [defaultItem];
+    }
+
+    qp.onDidAccept(() => {
+      finish(qp.selectedItems[0]);
       qp.dispose();
     });
 
@@ -297,7 +357,7 @@ export async function collectActionInfo(
     prompt: isCreateMode
       ? vscode.l10n.t('Command to execute (e.g. "docker compose up -d")')
       : vscode.l10n.t(
-          'Command to execute (e.g. "docker compose up -d"). Use ${name} for variables and define them in Variable Definitions.'
+          'Command to execute (e.g. "docker compose up -d ${name}"). Use ${name} for variables and define them in Variable Definitions.'
         ),
     title: buildStepTitle(
       vscode.l10n.t('Command'),
@@ -335,6 +395,28 @@ export async function collectActionInfo(
     };
   }
 
+  const variablesInput = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t(
+      'Optional. One variable per line: name=option1|option2|*. `*` allows manual input. Use ${name} in command.'
+    ),
+    title: buildStepTitle(
+      vscode.l10n.t('Variable Definitions'),
+      ACTION_WIZARD_STEP_EDIT.variableDefinitions,
+      totalSteps
+    ),
+    value: serializeVariableDefinitions(existing?.variables),
+    placeHolder: vscode.l10n.t('target=ingame|outgame|admin|*'),
+    validateInput: validateVariableDefinitions,
+  });
+  if (variablesInput === undefined) {
+    return undefined;
+  }
+  const variableParseResult = parseVariableDefinitions(variablesInput);
+  if (variableParseResult.error) {
+    vscode.window.showErrorMessage(variableParseResult.error);
+    return undefined;
+  }
+
   const description = await vscode.window.showInputBox({
     prompt: vscode.l10n.t('Short description (optional)'),
     title: buildStepTitle(
@@ -364,7 +446,7 @@ export async function collectActionInfo(
       picked: existing?.confirmBeforeRun !== true,
     },
   ];
-  const confirmPick = await vscode.window.showQuickPick(confirmItems, {
+  const confirmPick = await showQuickPickWithDefault(confirmItems, {
     placeHolder: vscode.l10n.t(
       'Confirmation behavior before action execution'
     ),
@@ -396,7 +478,7 @@ export async function collectActionInfo(
     },
   ];
 
-  const reusePick = await vscode.window.showQuickPick(reuseItems, {
+  const reusePick = await showQuickPickWithDefault(reuseItems, {
     placeHolder: vscode.l10n.t('Terminal reuse behavior'),
     title: buildStepTitle(
       vscode.l10n.t('Terminal Reuse'),
@@ -432,7 +514,7 @@ export async function collectActionInfo(
     profileItems[0] = { ...profileItems[0], picked: true };
   }
 
-  const profilePick = await vscode.window.showQuickPick(profileItems, {
+  const profilePick = await showQuickPickWithDefault(profileItems, {
     placeHolder: vscode.l10n.t('Select terminal profile'),
     title: buildStepTitle(
       vscode.l10n.t('Terminal Profile'),
@@ -461,28 +543,6 @@ export async function collectActionInfo(
     placeHolder: vscode.l10n.t('${workspaceFolder}'),
   });
   if (cwd === undefined) {
-    return undefined;
-  }
-
-  const variablesInput = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t(
-      'Optional. One variable per line: name=option1|option2|*. `*` allows manual input. Use ${name} in command.'
-    ),
-    title: buildStepTitle(
-      vscode.l10n.t('Variable Definitions'),
-      ACTION_WIZARD_STEP_EDIT.variableDefinitions,
-      totalSteps
-    ),
-    value: serializeVariableDefinitions(existing?.variables),
-    placeHolder: vscode.l10n.t('target=ingame|outgame|admin|*'),
-    validateInput: validateVariableDefinitions,
-  });
-  if (variablesInput === undefined) {
-    return undefined;
-  }
-  const variableParseResult = parseVariableDefinitions(variablesInput);
-  if (variableParseResult.error) {
-    vscode.window.showErrorMessage(variableParseResult.error);
     return undefined;
   }
 
