@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionsManager } from './actionsManager';
-import { Action } from './types';
+import { Action, ActionVariable } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,8 +21,7 @@ export function getTerminalProfiles(): string[] {
       ? 'osx'
       : 'linux';
 
-  const profiles =
-    config.get<Record<string, unknown>>(platform) ?? {};
+  const profiles = config.get<Record<string, unknown>>(platform) ?? {};
   const names = Object.entries(profiles)
     .filter(([, v]) => v !== null)
     .map(([k]) => k);
@@ -36,18 +35,178 @@ export function getTerminalProfiles(): string[] {
 }
 
 /**
+ * Builds a localized title for wizard steps.
+ */
+function buildStepTitle(
+  label: string,
+  step: number,
+  totalSteps: number
+): string {
+  return vscode.l10n.t('{0} (Step {1}/{2})', label, step, totalSteps);
+}
+
+type CollectActionInfoMode = 'create' | 'edit';
+
+interface CollectActionInfoOptions {
+  mode?: CollectActionInfoMode;
+}
+
+const ACTION_WIZARD_STEP_CREATE = {
+  section: 1,
+  actionName: 2,
+  command: 3,
+  description: 4,
+} as const;
+
+const ACTION_WIZARD_STEP_EDIT = {
+  section: 1,
+  actionName: 2,
+  command: 3,
+  variableDefinitions: 4,
+  description: 5,
+  runConfirmation: 6,
+  terminalReuse: 7,
+  terminalProfile: 8,
+  workingDirectory: 9,
+} as const;
+
+const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Serializes variable definitions into editable text.
+ */
+function serializeVariableDefinitions(
+  variables: ActionVariable[] | undefined
+): string {
+  if (!variables || variables.length === 0) {
+    return '';
+  }
+  return variables
+    .map(variable => {
+      if (!variable.options || variable.options.length === 0) {
+        return variable.name;
+      }
+      return `${variable.name}=${variable.options.join('|')}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Parses variable definitions from user input.
+ */
+function parseVariableDefinitions(
+  rawValue: string
+): { variables: ActionVariable[]; error?: string } {
+  const normalized = rawValue.trim();
+  if (!normalized) {
+    return { variables: [] };
+  }
+
+  const variables: ActionVariable[] = [];
+  const seen = new Set<string>();
+  const lines = normalized
+    .split(/\r?\n|;/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const equalIndex = line.indexOf('=');
+    const hasOptions = equalIndex >= 0;
+    const name = (hasOptions ? line.slice(0, equalIndex) : line).trim();
+
+    if (!hasOptions) {
+      return {
+        variables: [],
+        error: vscode.l10n.t(
+          'Variable definition "{0}" is invalid. Use name=option1|option2 and include * to allow manual input.',
+          line
+        ),
+      };
+    }
+
+    if (!VARIABLE_NAME_PATTERN.test(name)) {
+      return {
+        variables: [],
+        error: vscode.l10n.t(
+          'Invalid variable name "{0}". Use letters, numbers, and underscores, and do not start with a number.',
+          name || line
+        ),
+      };
+    }
+    if (seen.has(name)) {
+      return {
+        variables: [],
+        error: vscode.l10n.t('Variable "{0}" is duplicated.', name),
+      };
+    }
+    seen.add(name);
+
+    const options = line
+      .slice(equalIndex + 1)
+      .split('|')
+      .map(option => option.trim())
+      .filter(Boolean);
+
+    if (options.length === 0) {
+      return {
+        variables: [],
+        error: vscode.l10n.t(
+          'Variable "{0}" has no options. Add selectable values and include * when manual input should be allowed.',
+          name
+        ),
+      };
+    }
+
+    variables.push({ name, options });
+  }
+
+  return { variables };
+}
+
+/**
+ * Validates variable definition syntax while typing.
+ */
+function validateVariableDefinitions(rawValue: string): string | undefined {
+  const result = parseVariableDefinitions(rawValue);
+  return result.error;
+}
+
+/**
  * Shows a QuickPick that allows the user to select an existing section
  * or type a new section name.
  */
 async function pickOrCreateSection(
   existingSections: string[],
+  totalSteps: number,
+  step: number,
   defaultValue?: string
 ): Promise<string | undefined> {
   return new Promise<string | undefined>(resolve => {
+    let settled = false;
+    const finish = (value: string | undefined): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
     const qp = vscode.window.createQuickPick();
-    qp.placeholder = 'Select a section or type a new name';
-    qp.title = 'Section (Step 1/7)';
+    qp.placeholder = vscode.l10n.t('Select a section or type a new name');
+    qp.title = buildStepTitle(vscode.l10n.t('Section'), step, totalSteps);
+    const defaultSection = 'common';
     qp.items = existingSections.map(s => ({ label: s }));
+    if (existingSections.length === 0) {
+      qp.items = [
+        {
+          label: defaultSection,
+          description: vscode.l10n.t('(new section)'),
+        },
+      ];
+      if (!defaultValue) {
+        qp.value = defaultSection;
+      }
+    }
     if (defaultValue) {
       qp.value = defaultValue;
     }
@@ -58,7 +217,10 @@ async function pickOrCreateSection(
         .map(s => ({ label: s }));
       if (value.trim() && !existingSections.includes(value.trim())) {
         qp.items = [
-          { label: value.trim(), description: '(new section)' },
+          {
+            label: value.trim(),
+            description: vscode.l10n.t('(new section)'),
+          },
           ...filtered,
         ];
       } else {
@@ -69,13 +231,13 @@ async function pickOrCreateSection(
     qp.onDidAccept(() => {
       const value =
         qp.selectedItems[0]?.label ?? qp.value.trim();
+      finish(value || undefined);
       qp.dispose();
-      resolve(value || undefined);
     });
 
     qp.onDidHide(() => {
       qp.dispose();
-      resolve(undefined);
+      finish(undefined);
     });
 
     qp.show();
@@ -95,60 +257,170 @@ async function pickOrCreateSection(
  */
 export async function collectActionInfo(
   actionsManager: ActionsManager,
-  existing?: Action
+  existing?: Action,
+  options?: CollectActionInfoOptions
 ): Promise<Omit<Action, 'id'> | undefined> {
-  // ------------------------------------------------------------------
-  // Step 1: Section
-  // ------------------------------------------------------------------
+  const mode = options?.mode ?? 'edit';
+  const isCreateMode = mode === 'create';
+  const totalSteps = isCreateMode ? 4 : 9;
+  const stepConfig = isCreateMode
+    ? ACTION_WIZARD_STEP_CREATE
+    : ACTION_WIZARD_STEP_EDIT;
+
   const existingSections = actionsManager.getSections();
   const section = await pickOrCreateSection(
     existingSections,
+    totalSteps,
+    stepConfig.section,
     existing?.section
   );
   if (!section) {
     return undefined;
   }
 
-  // ------------------------------------------------------------------
-  // Step 2: Action name
-  // ------------------------------------------------------------------
   const name = await vscode.window.showInputBox({
-    prompt: 'Action name (e.g. "Start services")',
-    title: 'Action Name (Step 2/7)',
+    prompt: vscode.l10n.t('Action name (e.g. "Start services")'),
+    title: buildStepTitle(
+      vscode.l10n.t('Action Name'),
+      stepConfig.actionName,
+      totalSteps
+    ),
     value: existing?.name ?? '',
-    validateInput: v => (v.trim() ? undefined : 'Name is required'),
+    validateInput: v =>
+      v.trim() ? undefined : vscode.l10n.t('Name is required'),
   });
   if (name === undefined) {
     return undefined;
   }
 
-  // ------------------------------------------------------------------
-  // Step 3: Command
-  // ------------------------------------------------------------------
   const command = await vscode.window.showInputBox({
-    prompt: 'Command to execute (e.g. "docker compose up -d")',
-    title: 'Command (Step 3/7)',
+    prompt: isCreateMode
+      ? vscode.l10n.t('Command to execute (e.g. "docker compose up -d")')
+      : vscode.l10n.t(
+          'Command to execute (e.g. "docker compose up -d"). Use ${name} for variables and define them in Variable Definitions.'
+        ),
+    title: buildStepTitle(
+      vscode.l10n.t('Command'),
+      stepConfig.command,
+      totalSteps
+    ),
     value: existing?.command ?? '',
-    validateInput: v => (v.trim() ? undefined : 'Command is required'),
+    validateInput: v =>
+      v.trim() ? undefined : vscode.l10n.t('Command is required'),
   });
   if (command === undefined) {
     return undefined;
   }
 
-  // ------------------------------------------------------------------
-  // Step 4: Terminal profile
-  // ------------------------------------------------------------------
+  // Add new では複雑な設定を表示しない
+  if (isCreateMode) {
+    const description = await vscode.window.showInputBox({
+      prompt: vscode.l10n.t('Short description (optional)'),
+      title: buildStepTitle(
+        vscode.l10n.t('Description'),
+        stepConfig.description,
+        totalSteps
+      ),
+      value: existing?.description ?? '',
+    });
+    if (description === undefined) {
+      return undefined;
+    }
+
+    return {
+      section: section.trim(),
+      name: name.trim(),
+      command: command.trim(),
+      description: description.trim() || undefined,
+    };
+  }
+
+  const description = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Short description (optional)'),
+    title: buildStepTitle(
+      vscode.l10n.t('Description'),
+      ACTION_WIZARD_STEP_EDIT.description,
+      totalSteps
+    ),
+    value: existing?.description ?? '',
+  });
+  if (description === undefined) {
+    return undefined;
+  }
+
+  const confirmOnLabel = vscode.l10n.t(
+    '$(question) Require confirmation before run'
+  );
+  const confirmOffLabel = vscode.l10n.t(
+    '$(check) Run immediately without confirmation'
+  );
+  const confirmItems: vscode.QuickPickItem[] = [
+    {
+      label: confirmOnLabel,
+      picked: existing?.confirmBeforeRun === true,
+    },
+    {
+      label: confirmOffLabel,
+      picked: existing?.confirmBeforeRun !== true,
+    },
+  ];
+  const confirmPick = await vscode.window.showQuickPick(confirmItems, {
+    placeHolder: vscode.l10n.t(
+      'Confirmation behavior before action execution'
+    ),
+    title: buildStepTitle(
+      vscode.l10n.t('Run Confirmation'),
+      ACTION_WIZARD_STEP_EDIT.runConfirmation,
+      totalSteps
+    ),
+  });
+  if (confirmPick === undefined) {
+    return undefined;
+  }
+  const confirmBeforeRun = confirmPick.label === confirmOnLabel;
+
+  const reuseLabel = vscode.l10n.t('$(terminal) Reuse existing terminal');
+  const newLabel = vscode.l10n.t('$(add) Always create a new terminal');
+  const reuseItems: vscode.QuickPickItem[] = [
+    {
+      label: reuseLabel,
+      description: vscode.l10n.t(
+        'Reuse the terminal for this section (recommended)'
+      ),
+      picked: existing?.reuseTerminal !== false,
+    },
+    {
+      label: newLabel,
+      description: vscode.l10n.t('Open a fresh terminal every time'),
+      picked: existing?.reuseTerminal === false,
+    },
+  ];
+
+  const reusePick = await vscode.window.showQuickPick(reuseItems, {
+    placeHolder: vscode.l10n.t('Terminal reuse behavior'),
+    title: buildStepTitle(
+      vscode.l10n.t('Terminal Reuse'),
+      ACTION_WIZARD_STEP_EDIT.terminalReuse,
+      totalSteps
+    ),
+  });
+  if (reusePick === undefined) {
+    return undefined;
+  }
+  const reuseTerminal = reusePick.label === reuseLabel;
+
   const profiles = getTerminalProfiles();
-  const defaultProfileLabel = '$(terminal) Default (VS Code default)';
+  const defaultProfileLabel = vscode.l10n.t(
+    '$(terminal) Default (VS Code default)'
+  );
   const profileItems: vscode.QuickPickItem[] = [
     {
       label: defaultProfileLabel,
-      description: 'Use the VS Code default terminal',
+      description: vscode.l10n.t('Use the VS Code default terminal'),
     },
     ...profiles.map(p => ({ label: p })),
   ];
 
-  // Mark the currently selected profile
   if (existing?.terminalProfile) {
     const idx = profileItems.findIndex(
       i => i.label === existing.terminalProfile
@@ -161,8 +433,12 @@ export async function collectActionInfo(
   }
 
   const profilePick = await vscode.window.showQuickPick(profileItems, {
-    placeHolder: 'Select terminal profile',
-    title: 'Terminal Profile (Step 4/7)',
+    placeHolder: vscode.l10n.t('Select terminal profile'),
+    title: buildStepTitle(
+      vscode.l10n.t('Terminal Profile'),
+      ACTION_WIZARD_STEP_EDIT.terminalProfile,
+      totalSteps
+    ),
   });
   if (profilePick === undefined) {
     return undefined;
@@ -172,56 +448,41 @@ export async function collectActionInfo(
       ? undefined
       : profilePick.label;
 
-  // ------------------------------------------------------------------
-  // Step 5: Reuse terminal
-  // ------------------------------------------------------------------
-  const reuseLabel = '$(terminal) Reuse existing terminal';
-  const newLabel = '$(add) Always create a new terminal';
-  const reuseItems: vscode.QuickPickItem[] = [
-    {
-      label: reuseLabel,
-      description: 'Reuse the terminal for this section (recommended)',
-      picked: existing?.reuseTerminal !== false,
-    },
-    {
-      label: newLabel,
-      description: 'Open a fresh terminal every time',
-      picked: existing?.reuseTerminal === false,
-    },
-  ];
-
-  const reusePick = await vscode.window.showQuickPick(reuseItems, {
-    placeHolder: 'Terminal reuse behavior',
-    title: 'Terminal Reuse (Step 5/7)',
-  });
-  if (reusePick === undefined) {
-    return undefined;
-  }
-  const reuseTerminal = reusePick.label === reuseLabel;
-
-  // ------------------------------------------------------------------
-  // Step 6: Working directory
-  // ------------------------------------------------------------------
   const cwd = await vscode.window.showInputBox({
-    prompt:
-      'Working directory (leave empty for workspace root). Supports ${workspaceFolder}.',
-    title: 'Working Directory (Step 6/7)',
+    prompt: vscode.l10n.t(
+      'Working directory (leave empty for workspace root). Supports ${workspaceFolder}.'
+    ),
+    title: buildStepTitle(
+      vscode.l10n.t('Working Directory'),
+      ACTION_WIZARD_STEP_EDIT.workingDirectory,
+      totalSteps
+    ),
     value: existing?.cwd ?? '',
-    placeHolder: '${workspaceFolder}',
+    placeHolder: vscode.l10n.t('${workspaceFolder}'),
   });
   if (cwd === undefined) {
     return undefined;
   }
 
-  // ------------------------------------------------------------------
-  // Step 7: Description
-  // ------------------------------------------------------------------
-  const description = await vscode.window.showInputBox({
-    prompt: 'Short description (optional)',
-    title: 'Description (Step 7/7)',
-    value: existing?.description ?? '',
+  const variablesInput = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t(
+      'Optional. One variable per line: name=option1|option2|*. `*` allows manual input. Use ${name} in command.'
+    ),
+    title: buildStepTitle(
+      vscode.l10n.t('Variable Definitions'),
+      ACTION_WIZARD_STEP_EDIT.variableDefinitions,
+      totalSteps
+    ),
+    value: serializeVariableDefinitions(existing?.variables),
+    placeHolder: vscode.l10n.t('target=ingame|outgame|admin|*'),
+    validateInput: validateVariableDefinitions,
   });
-  if (description === undefined) {
+  if (variablesInput === undefined) {
+    return undefined;
+  }
+  const variableParseResult = parseVariableDefinitions(variablesInput);
+  if (variableParseResult.error) {
+    vscode.window.showErrorMessage(variableParseResult.error);
     return undefined;
   }
 
@@ -233,5 +494,10 @@ export async function collectActionInfo(
     reuseTerminal,
     cwd: cwd.trim() || undefined,
     description: description.trim() || undefined,
+    variables:
+      variableParseResult.variables.length > 0
+        ? variableParseResult.variables
+        : undefined,
+    confirmBeforeRun,
   };
 }

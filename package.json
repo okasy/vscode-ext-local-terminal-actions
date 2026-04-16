@@ -1,23 +1,25 @@
 {
   "name": "local-terminal-actions",
-  "displayName": "Local Terminal Actions",
-  "description": "Run terminal commands with one click from the sidebar. Commands are saved to .vscode/actions.json for team sharing.",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.1.0",
   "publisher": "okasy",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.96.0"
   },
   "categories": [
+    "Testing",
     "Other"
   ],
   "activationEvents": [],
+  "l10n": "./l10n",
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "localTerminalActions",
-          "title": "Local Terminal Actions",
+          "title": "%views.container.title%",
           "icon": "images/icon.svg"
         }
       ]
@@ -26,68 +28,145 @@
       "localTerminalActions": [
         {
           "id": "localTerminalActions.actions",
-          "name": "Actions"
+          "name": "%views.actions.name%"
         },
         {
           "id": "localTerminalActions.setting",
-          "name": "Setting"
+          "name": "%views.setting.name%"
         }
       ]
     },
+    "jsonValidation": [
+      {
+        "fileMatch": ".vscode/actions.json",
+        "url": "./schemas/actions.schema.json"
+      }
+      ,
+      {
+        "command": "localTerminalActions.initActionsFile",
+        "title": "%commands.initActionsFile.title%",
+        "icon": "$(file-add)"
+      }
+    ],
     "viewsWelcome": [
       {
         "view": "localTerminalActions.actions",
-        "contents": "No workspace folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "contents": "%viewsWelcome.actions.noWorkspace%",
         "when": "workspaceFolderCount == 0"
       },
       {
         "view": "localTerminalActions.actions",
-        "contents": "No actions configured yet.\nGo to **Setting** below to add your first action.",
+        "contents": "%viewsWelcome.actions.noActions%",
         "when": "workspaceFolderCount > 0"
       },
       {
         "view": "localTerminalActions.setting",
-        "contents": "No workspace folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "contents": "%viewsWelcome.setting.noWorkspace%",
         "when": "workspaceFolderCount == 0"
       },
       {
         "view": "localTerminalActions.setting",
-        "contents": "No actions configured yet.\n[Add Action](command:localTerminalActions.addAction)",
+        "contents": "%viewsWelcome.setting.noActions%",
         "when": "workspaceFolderCount > 0"
       }
     ],
     "commands": [
       {
         "command": "localTerminalActions.runAction",
-        "title": "Run Action",
+        "title": "%commands.runAction.title%",
         "icon": "$(play)"
       },
       {
+        "command": "localTerminalActions.focusActionTerminal",
+        "title": "%commands.focusActionTerminal.title%",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "localTerminalActions.closeActionTerminal",
+        "title": "%commands.closeActionTerminal.title%",
+        "icon": "$(close)"
+      },
+      {
         "command": "localTerminalActions.addAction",
-        "title": "Add Action",
+        "title": "%commands.addAction.title%",
         "icon": "$(add)"
       },
       {
         "command": "localTerminalActions.editAction",
-        "title": "Edit Action",
+        "title": "%commands.editAction.title%",
         "icon": "$(edit)"
       },
       {
         "command": "localTerminalActions.deleteAction",
-        "title": "Delete Action",
+        "title": "%commands.deleteAction.title%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "localTerminalActions.duplicateAction",
+        "title": "%commands.duplicateAction.title%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "localTerminalActions.duplicateSection",
+        "title": "%commands.duplicateSection.title%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "localTerminalActions.deleteSection",
+        "title": "%commands.deleteSection.title%",
         "icon": "$(trash)"
       },
       {
         "command": "localTerminalActions.refresh",
-        "title": "Refresh",
+        "title": "%commands.refresh.title%",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "localTerminalActions.cycleSubtextModeFromCommand",
+        "title": "%commands.cycleSubtextModeFromCommand.title%",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "localTerminalActions.cycleSubtextModeFromDescription",
+        "title": "%commands.cycleSubtextModeFromDescription.title%",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "localTerminalActions.cycleSubtextModeFromHidden",
+        "title": "%commands.cycleSubtextModeFromHidden.title%",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "localTerminalActions.selectTreeSubtextMode",
+        "title": "%commands.selectTreeSubtextMode.title%",
+        "icon": "$(list-selection)"
       }
     ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "localTerminalActions.treeSubtextMode": {
+          "type": "string",
+          "default": "command",
+          "enum": [
+            "command",
+            "description",
+            "hidden"
+          ],
+          "enumDescriptions": [
+            "%configuration.treeSubtextMode.enum.command%",
+            "%configuration.treeSubtextMode.enum.description%",
+            "%configuration.treeSubtextMode.enum.hidden%"
+          ],
+          "markdownDescription": "%configuration.treeSubtextMode.markdownDescription%"
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {
           "command": "localTerminalActions.addAction",
-          "when": "view == localTerminalActions.setting",
+          "when": "view == localTerminalActions.actions",
           "group": "navigation"
         },
         {
@@ -99,32 +178,82 @@
       "view/item/context": [
         {
           "command": "localTerminalActions.runAction",
-          "when": "view == localTerminalActions.actions && viewItem == action",
+          "when": "view == localTerminalActions.actions && (viewItem == action || viewItem == action:executed)",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.focusActionTerminal",
+          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.closeActionTerminal",
+          "when": "view == localTerminalActions.actions && viewItem == action:executed",
           "group": "inline"
         },
         {
           "command": "localTerminalActions.editAction",
-          "when": "view == localTerminalActions.setting && viewItem == action",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
           "group": "inline"
         },
         {
           "command": "localTerminalActions.deleteAction",
-          "when": "view == localTerminalActions.setting && viewItem == action",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.duplicateAction",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.duplicateSection",
+          "when": "view == localTerminalActions.setting && (viewItem == section:single || viewItem == section:top || viewItem == section:middle || viewItem == section:bottom)",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.deleteSection",
+          "when": "view == localTerminalActions.setting && (viewItem == section:single || viewItem == section:top || viewItem == section:middle || viewItem == section:bottom)",
           "group": "inline"
         },
         {
           "command": "localTerminalActions.runAction",
-          "when": "view == localTerminalActions.actions && viewItem == action",
+          "when": "view == localTerminalActions.actions && (viewItem == action || viewItem == action:executed)",
           "group": "1_action"
         },
         {
+          "command": "localTerminalActions.focusActionTerminal",
+          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "group": "1_action"
+        },
+        {
+          "command": "localTerminalActions.closeActionTerminal",
+          "when": "view == localTerminalActions.actions && viewItem == action:executed",
+          "group": "1_action"
+        },
+        {
+          "command": "localTerminalActions.duplicateAction",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "1_manage"
+        },
+        {
           "command": "localTerminalActions.editAction",
-          "when": "view == localTerminalActions.setting && viewItem == action",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
           "group": "1_manage"
         },
         {
           "command": "localTerminalActions.deleteAction",
-          "when": "view == localTerminalActions.setting && viewItem == action",
+          "when": "view == localTerminalActions.setting && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.duplicateSection",
+          "when": "view == localTerminalActions.setting && (viewItem == section:single || viewItem == section:top || viewItem == section:middle || viewItem == section:bottom)",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.deleteSection",
+          "when": "view == localTerminalActions.setting && (viewItem == section:single || viewItem == section:top || viewItem == section:middle || viewItem == section:bottom)",
           "group": "1_manage"
         }
       ]
@@ -137,7 +266,7 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "^1.96.0",
     "@types/node": "^18.0.0",
     "typescript": "^5.0.0"
   }
