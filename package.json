@@ -1,0 +1,144 @@
+{
+  "name": "local-terminal-actions",
+  "displayName": "Local Terminal Actions",
+  "description": "Run terminal commands with one click from the sidebar. Commands are saved to .vscode/actions.json for team sharing.",
+  "version": "0.1.0",
+  "publisher": "okasy",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "localTerminalActions",
+          "title": "Local Terminal Actions",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "localTerminalActions": [
+        {
+          "id": "localTerminalActions.actions",
+          "name": "Actions"
+        },
+        {
+          "id": "localTerminalActions.setting",
+          "name": "Setting"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "localTerminalActions.actions",
+        "contents": "No workspace folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "localTerminalActions.actions",
+        "contents": "No actions configured yet.\nGo to **Setting** below to add your first action.",
+        "when": "workspaceFolderCount > 0"
+      },
+      {
+        "view": "localTerminalActions.setting",
+        "contents": "No workspace folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "localTerminalActions.setting",
+        "contents": "No actions configured yet.\n[Add Action](command:localTerminalActions.addAction)",
+        "when": "workspaceFolderCount > 0"
+      }
+    ],
+    "commands": [
+      {
+        "command": "localTerminalActions.runAction",
+        "title": "Run Action",
+        "icon": "$(play)"
+      },
+      {
+        "command": "localTerminalActions.addAction",
+        "title": "Add Action",
+        "icon": "$(add)"
+      },
+      {
+        "command": "localTerminalActions.editAction",
+        "title": "Edit Action",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "localTerminalActions.deleteAction",
+        "title": "Delete Action",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "localTerminalActions.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "localTerminalActions.addAction",
+          "when": "view == localTerminalActions.setting",
+          "group": "navigation"
+        },
+        {
+          "command": "localTerminalActions.refresh",
+          "when": "view == localTerminalActions.actions || view == localTerminalActions.setting",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "localTerminalActions.runAction",
+          "when": "view == localTerminalActions.actions && viewItem == action",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.editAction",
+          "when": "view == localTerminalActions.setting && viewItem == action",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.deleteAction",
+          "when": "view == localTerminalActions.setting && viewItem == action",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.runAction",
+          "when": "view == localTerminalActions.actions && viewItem == action",
+          "group": "1_action"
+        },
+        {
+          "command": "localTerminalActions.editAction",
+          "when": "view == localTerminalActions.setting && viewItem == action",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.deleteAction",
+          "when": "view == localTerminalActions.setting && viewItem == action",
+          "group": "1_manage"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}
