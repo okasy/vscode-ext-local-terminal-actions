@@ -56,21 +56,6 @@ export class SettingSectionItem extends vscode.TreeItem {
   }
 }
 
-export class SettingGroupItem extends vscode.TreeItem {
-  constructor(public readonly groupKey: 'general' | 'editActions') {
-    super(
-      groupKey === 'general'
-        ? vscode.l10n.t('General')
-        : vscode.l10n.t('Edit Actions (drag and drop to reorder)'),
-      vscode.TreeItemCollapsibleState.Expanded
-    );
-    this.contextValue = `settingGroup:${groupKey}`;
-    this.iconPath = new vscode.ThemeIcon(
-      groupKey === 'general' ? 'settings-gear' : 'edit'
-    );
-  }
-}
-
 export class SubtextModeSelectorItem extends vscode.TreeItem {
   constructor() {
     const mode = getTreeSubtextMode();
@@ -107,6 +92,22 @@ export class InitActionsFileItem extends vscode.TreeItem {
   }
 }
 
+export class OpenActionsFileItem extends vscode.TreeItem {
+  constructor() {
+    super(
+      vscode.l10n.t('Open actions.json'),
+      vscode.TreeItemCollapsibleState.None
+    );
+    this.contextValue = 'openActionsFile';
+    this.iconPath = new vscode.ThemeIcon('go-to-file');
+    this.command = {
+      command: 'localTerminalActions.openActionsFile',
+      title: vscode.l10n.t('Open actions.json'),
+    };
+    this.tooltip = vscode.l10n.t('Open .vscode/actions.json in the editor');
+  }
+}
+
 export class SettingActionItem extends vscode.TreeItem {
   constructor(
     public readonly action: Action,
@@ -133,37 +134,41 @@ export class SettingActionItem extends vscode.TreeItem {
 export class SettingProvider
   implements
     vscode.TreeDataProvider<
-      SettingGroupItem | SubtextModeSelectorItem | InitActionsFileItem | SettingSectionItem | SettingActionItem
+      SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >,
     vscode.TreeDragAndDropController<
-      SettingGroupItem | SubtextModeSelectorItem | InitActionsFileItem | SettingSectionItem | SettingActionItem
+      SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >
 {
-  readonly dragMimeTypes = ['application/vnd.code.tree.localTerminalActions.setting'];
-  readonly dropMimeTypes = ['application/vnd.code.tree.localTerminalActions.setting'];
+  readonly dragMimeTypes = ['application/vnd.code.tree.localTerminalActions.settingEditActions'];
+  readonly dropMimeTypes = ['application/vnd.code.tree.localTerminalActions.settingEditActions'];
 
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<
-    | SettingGroupItem
     | SubtextModeSelectorItem
     | SettingSectionItem
     | SettingActionItem
-      | InitActionsFileItem
+    | InitActionsFileItem
+    | OpenActionsFileItem
     | undefined
     | null
     | void
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private readonly actionsManager: ActionsManager) {}
+  constructor(
+    private readonly actionsManager: ActionsManager,
+    private readonly viewKind: 'general' | 'editActions'
+  ) {}
 
   async handleDrag(
     source: readonly (
-        | InitActionsFileItem
-      | SettingGroupItem
+      | InitActionsFileItem
+      | OpenActionsFileItem
       | SubtextModeSelectorItem
       | SettingSectionItem
       | SettingActionItem
     )[],
+
     dataTransfer: vscode.DataTransfer
   ): Promise<void> {
     if (source.length !== 1) {
@@ -191,8 +196,8 @@ export class SettingProvider
 
   async handleDrop(
     target:
-        | InitActionsFileItem
-      | SettingGroupItem
+      | InitActionsFileItem
+      | OpenActionsFileItem
       | SubtextModeSelectorItem
       | SettingSectionItem
       | SettingActionItem
@@ -244,28 +249,22 @@ export class SettingProvider
   }
 
   getTreeItem(
-    element: SettingGroupItem | SubtextModeSelectorItem | InitActionsFileItem | SettingSectionItem | SettingActionItem
+    element: SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
   ): vscode.TreeItem {
     return element;
   }
 
   getChildren(
-    element?: SettingGroupItem | SubtextModeSelectorItem | InitActionsFileItem | SettingSectionItem | SettingActionItem
+    element?: SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
   ): vscode.ProviderResult<
-    (SettingGroupItem | SubtextModeSelectorItem | InitActionsFileItem | SettingSectionItem | SettingActionItem)[]
+    (SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem)[]
   > {
     if (!this.actionsManager.hasWorkspace()) {
       return [];
     }
     if (!element) {
-      return [
-        new SettingGroupItem('general'),
-        new SettingGroupItem('editActions'),
-      ];
-    }
-    if (element instanceof SettingGroupItem) {
-      if (element.groupKey === 'general') {
-        return [new SubtextModeSelectorItem(), new InitActionsFileItem()];
+      if (this.viewKind === 'general') {
+        return [new SubtextModeSelectorItem(), new InitActionsFileItem(), new OpenActionsFileItem()];
       }
       const sections = this.actionsManager.getSections();
       return sections.map((name, index) => {

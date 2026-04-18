@@ -508,6 +508,38 @@ export class ActionsManager {
   }
 
   /**
+   * Renames a section and updates all actions that belong to it.
+   * Returns false when the name is unchanged, the target already exists, or the section is not found.
+   */
+  renameSection(oldName: string, newName: string): boolean {
+    const trimmed = newName.trim();
+    if (!trimmed || oldName === trimmed) {
+      return false;
+    }
+
+    const data = this.getData();
+    const sections = data.sections ?? [];
+
+    if (!sections.includes(oldName)) {
+      return false;
+    }
+    if (sections.includes(trimmed)) {
+      return false;
+    }
+
+    const nextSections = sections.map(s => (s === oldName ? trimmed : s));
+    const nextActions = data.actions.map(a =>
+      a.section === oldName ? { ...a, section: trimmed } : a
+    );
+
+    this.saveData({
+      actions: nextActions,
+      sections: nextSections,
+    });
+    return true;
+  }
+
+  /**
    * Creates actions.json with the minimal structure if it does not exist,
    * or adds any missing top-level keys ($schema, sections, actions) if it already exists.
    *

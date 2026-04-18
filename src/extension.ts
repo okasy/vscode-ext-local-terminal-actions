@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ActionsManager } from './actionsManager';
 import { ActionsProvider, ActionItem } from './actionsProvider';
 import {
@@ -40,7 +41,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const actionsManager = new ActionsManager(workspaceRoot, context.extensionPath);
   const actionsProvider = new ActionsProvider(actionsManager);
-  const settingProvider = new SettingProvider(actionsManager);
+  const generalSettingProvider = new SettingProvider(actionsManager, 'general');
+  const editActionsSettingProvider = new SettingProvider(actionsManager, 'editActions');
   const updateActionStatus = (actionId: string, status: ActionExecutionStatus): void => {
     actionsProvider.setActionStatus(actionId, status);
   };
@@ -61,17 +63,18 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   });
 
-  const settingTreeView = vscode.window.createTreeView(
-    'localTerminalActions.setting',
+  const editActionsSettingTreeView = vscode.window.createTreeView(
+    'localTerminalActions.settingEditActions',
     {
-      treeDataProvider: settingProvider,
-      dragAndDropController: settingProvider,
+      treeDataProvider: editActionsSettingProvider,
+      dragAndDropController: editActionsSettingProvider,
     }
   );
 
   const refreshAll = (): void => {
     actionsProvider.refresh();
-    settingProvider.refresh();
+    generalSettingProvider.refresh();
+    editActionsSettingProvider.refresh();
   };
   const updateSubtextModeContext = async (): Promise<void> => {
     await vscode.commands.executeCommand(
@@ -94,7 +97,11 @@ export function activate(context: vscode.ExtensionContext): void {
       'localTerminalActions.actions',
       actionsProvider
     ),
-    settingTreeView,
+    vscode.window.registerTreeDataProvider(
+      'localTerminalActions.settingGeneral',
+      generalSettingProvider
+    ),
+    editActionsSettingTreeView,
     terminalManager
   );
 
@@ -187,8 +194,7 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         if (data) {
           actionsManager.addAction(data);
-          actionsProvider.refresh();
-          settingProvider.refresh();
+          refreshAll();
           vscode.window.showInformationMessage(
             vscode.l10n.t('Action "{0}" added.', data.name)
           );
@@ -205,8 +211,7 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         if (data) {
           actionsManager.updateAction({ ...data, id: item.action.id });
-          actionsProvider.refresh();
-          settingProvider.refresh();
+          refreshAll();
           vscode.window.showInformationMessage(
             vscode.l10n.t('Action "{0}" updated.', data.name)
           );
@@ -225,8 +230,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         if (answer === vscode.l10n.t('Delete')) {
           actionsManager.deleteAction(item.action.id);
-          actionsProvider.refresh();
-          settingProvider.refresh();
+          refreshAll();
           vscode.window.showInformationMessage(
             vscode.l10n.t('Action "{0}" deleted.', item.action.name)
           );
@@ -241,11 +245,45 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!duplicated) {
           return;
         }
-        actionsProvider.refresh();
-        settingProvider.refresh();
+        refreshAll();
         vscode.window.showInformationMessage(
           vscode.l10n.t('Action "{0}" duplicated.', duplicated.name)
         );
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.renameSection',
+      async (item: SettingSectionItem) => {
+        const existing = actionsManager.getSections();
+        const newName = await vscode.window.showInputBox({
+          title: vscode.l10n.t('Rename Section'),
+          prompt: vscode.l10n.t('Enter new section name'),
+          value: item.sectionName,
+          validateInput: value => {
+            const trimmed = value.trim();
+            if (!trimmed) {
+              return vscode.l10n.t('Section name cannot be empty.');
+            }
+            if (trimmed !== item.sectionName && existing.includes(trimmed)) {
+              return vscode.l10n.t('Section "{0}" already exists.', trimmed);
+            }
+            return undefined;
+          },
+        });
+        if (!newName) {
+          return;
+        }
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === item.sectionName) {
+          return;
+        }
+        if (actionsManager.renameSection(item.sectionName, trimmed)) {
+          refreshAll();
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('Section renamed to "{0}".', trimmed)
+          );
+        }
       }
     ),
 
@@ -256,8 +294,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!duplicatedSectionName) {
           return;
         }
-        actionsProvider.refresh();
-        settingProvider.refresh();
+        refreshAll();
         vscode.window.showInformationMessage(
           vscode.l10n.t('Section "{0}" duplicated.', duplicatedSectionName)
         );
@@ -278,10 +315,26 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!actionsManager.deleteSection(item.sectionName)) {
           return;
         }
-        actionsProvider.refresh();
-        settingProvider.refresh();
+        refreshAll();
         vscode.window.showInformationMessage(
           vscode.l10n.t('Section "{0}" deleted.', item.sectionName)
+        );
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.openActionsFile',
+      () => {
+        if (!actionsManager.hasWorkspace() || !workspaceRoot) {
+          vscode.window.showWarningMessage(
+            vscode.l10n.t('Terminal Actions: Please open a workspace folder first.')
+          );
+          return;
+        }
+        const filePath = path.join(workspaceRoot, '.vscode', 'actions.json');
+        void vscode.commands.executeCommand(
+          'vscode.open',
+          vscode.Uri.file(filePath)
         );
       }
     ),
