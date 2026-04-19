@@ -1,7 +1,7 @@
 ---
 name: distribution-playbook
 user-invocable: true
-description: "VS Code 拡張の配布手順を標準化するスキル。『配布手順をまとめて』『リリース手順』『VSIX を作って配布したい』『publish 手順』『配布準備して』の依頼で使用。事前確認、ビルド、VSIX 生成、release notes 作成、git add、release notes ベースの commit、push、タグ作成、配布後チェックまでを順序立てて実施し、配布準備の実行が求められた場合は可能な範囲で実行まで行う。"
+description: "VS Code 拡張の配布手順を標準化するスキル。『配布手順をまとめて』『リリース手順』『VSIX を作って配布したい』『publish 手順』『配布準備して』の依頼で使用。事前確認、ビルド、VSIX 生成、release notes 作成、git add、release notes ベースの commit、push、タグ作成、タグ push、Marketplace 公開最終手順、配布後チェックまでを順序立てて実施し、配布準備の実行が求められた場合は可能な範囲で実行まで行う。"
 ---
 
 # Distribution Playbook Skill
@@ -33,9 +33,10 @@ description: "VS Code 拡張の配布手順を標準化するスキル。『配�
 - release notes の要約をもとにした commit 作成
 - commit 後の push
 - push 完了後のタグ作成
+- 作成したタグの push
+- Marketplace 公開コマンドの実行または公開直前確認
 
 2. ユーザー確認が必要な範囲
-- Marketplace 公開
 - 認証情報やトークンが必要な処理
 
 3. ブロック時の扱い
@@ -79,8 +80,9 @@ description: "VS Code 拡張の配布手順を標準化するスキル。『配�
 
 7. 公開処理
 - push 完了後に Git タグ作成（例: `v0.9.0`）
+- 作成したタグを `origin` へ push
 - リリースノート反映
-- Marketplace 公開（必要時）
+- Marketplace 公開コマンドを実行する、または認証不足時は公開直前状態まで進める
 
 8. 配布後確認
 - Marketplace/配布先の版数確認
@@ -99,6 +101,8 @@ description: "VS Code 拡張の配布手順を標準化するスキル。『配�
   - `git commit -m "..."`
   - `git push`
   - `git tag vX.Y.Z`
+  - `git push origin vX.Y.Z`
+  - `vsce publish` または Marketplace 公開直前確認
 - 生成物: `*.vsix`
 - 検証結果: 成功/失敗
 - 未完了タスク: なし/あり（内容）
@@ -111,3 +115,5 @@ description: "VS Code 拡張の配布手順を標準化するスキル。『配�
 - ユーザーが配布準備の実行を求めている場合、実行可能な手順は自律的に進める
 - commit message は `RELEASE_NOTES_<version>.md` の内容に沿って作成する
 - タグは commit と push の完了後に作成する
+- タグ作成後はタグの push まで実施する
+- Marketplace 公開で認証が必要な場合は、失敗理由と不足している認証条件を返す
