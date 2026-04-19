@@ -106,7 +106,7 @@ export class ActionsManager {
 
   private getData(): ActionsData {
     if (!this.actionsFilePath || !fs.existsSync(this.actionsFilePath)) {
-      return { actions: [], sections: [] };
+      return { actions: [], sections: [], commonOnNewTerminalCommand: undefined };
     }
     try {
       const content = fs.readFileSync(this.actionsFilePath, 'utf-8');
@@ -117,7 +117,15 @@ export class ActionsManager {
         Array.isArray(rawData.sections) ? rawData.sections : undefined,
         actions
       );
-      const normalized: ActionsData = { actions, sections };
+      const commonOnNewTerminalCommand =
+        typeof rawData.commonOnNewTerminalCommand === 'string'
+          ? rawData.commonOnNewTerminalCommand.trim() || undefined
+          : undefined;
+      const normalized: ActionsData = {
+        actions,
+        sections,
+        commonOnNewTerminalCommand,
+      };
       if (changed) {
         this.writeDataFile(normalized);
       }
@@ -126,7 +134,7 @@ export class ActionsManager {
       vscode.window.showErrorMessage(
         vscode.l10n.t('Terminal Actions: Failed to read actions.json - {0}', String(err))
       );
-      return { actions: [], sections: [] };
+      return { actions: [], sections: [], commonOnNewTerminalCommand: undefined };
     }
   }
 
@@ -142,6 +150,16 @@ export class ActionsManager {
     return this.getActions().filter(a => a.section === section);
   }
 
+  getCommonOnNewTerminalCommand(): string | undefined {
+    return this.getData().commonOnNewTerminalCommand;
+  }
+
+  setCommonOnNewTerminalCommand(command: string | undefined): void {
+    const data = this.getData();
+    data.commonOnNewTerminalCommand = command?.trim() || undefined;
+    this.saveData(data);
+  }
+
   private saveData(data: ActionsData): void {
     if (!this.actionsFilePath) {
       vscode.window.showWarningMessage(
@@ -152,6 +170,7 @@ export class ActionsManager {
     this.writeDataFile({
       actions: data.actions,
       sections: this.normalizeSections(data.sections, data.actions),
+      commonOnNewTerminalCommand: data.commonOnNewTerminalCommand,
     });
   }
 

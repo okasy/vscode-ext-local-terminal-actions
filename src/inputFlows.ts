@@ -62,12 +62,13 @@ const ACTION_WIZARD_STEP_EDIT = {
   section: 1,
   actionName: 2,
   command: 3,
-  variableDefinitions: 4,
-  description: 5,
-  runConfirmation: 6,
-  terminalReuse: 7,
-  terminalProfile: 8,
-  workingDirectory: 9,
+  onNewTerminalCommand: 4,
+  variableDefinitions: 5,
+  description: 6,
+  runConfirmation: 7,
+  terminalReuse: 8,
+  terminalProfile: 9,
+  workingDirectory: 10,
 } as const;
 
 const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -322,7 +323,7 @@ export async function collectActionInfo(
 ): Promise<Omit<Action, 'id'> | undefined> {
   const mode = options?.mode ?? 'edit';
   const isCreateMode = mode === 'create';
-  const totalSteps = isCreateMode ? 4 : 9;
+  const totalSteps = isCreateMode ? 4 : 10;
   const stepConfig = isCreateMode
     ? ACTION_WIZARD_STEP_CREATE
     : ACTION_WIZARD_STEP_EDIT;
@@ -393,6 +394,22 @@ export async function collectActionInfo(
       command: command.trim(),
       description: description.trim() || undefined,
     };
+  }
+
+  const onNewTerminalCommand = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t(
+      'Optional. Command to run right after creating a new terminal, before the action command.'
+    ),
+    title: buildStepTitle(
+      vscode.l10n.t('New Terminal Pre-Command'),
+      ACTION_WIZARD_STEP_EDIT.onNewTerminalCommand,
+      totalSteps
+    ),
+    value: existing?.onNewTerminalCommand ?? '',
+    placeHolder: vscode.l10n.t('e.g. source .env.local'),
+  });
+  if (onNewTerminalCommand === undefined) {
+    return undefined;
   }
 
   const variablesInput = await vscode.window.showInputBox({
@@ -550,6 +567,7 @@ export async function collectActionInfo(
     section: section.trim(),
     name: name.trim(),
     command: command.trim(),
+    onNewTerminalCommand: onNewTerminalCommand.trim() || undefined,
     terminalProfile,
     reuseTerminal,
     cwd: cwd.trim() || undefined,

@@ -15,6 +15,7 @@ interface PendingExecution {
 interface ExecutionTrackingCallbacks {
   onRunning?: (action: Action) => void;
   onCompleted?: (action: Action, exitCode: number | undefined) => void;
+  getCommonOnNewTerminalCommand?: () => string | undefined;
 }
 
 /**
@@ -103,13 +104,25 @@ export class TerminalManager {
       }
     }
 
-    const terminal = this.getOrCreateTerminal(action);
+    const { terminal, created } = this.getOrCreateTerminal(action);
     this.actionTerminals.set(action.id, terminal);
-    this.enqueuePendingExecution(terminal, action, resolvedCommand);
     terminal.show(true);
     // Brief pause to allow the shell to become ready if freshly created
     await new Promise<void>(resolve => setTimeout(resolve, 300));
 
+    if (created) {
+      const commonPreCommand =
+        this.callbacks.getCommonOnNewTerminalCommand?.()?.trim() || undefined;
+      if (commonPreCommand) {
+        terminal.sendText(commonPreCommand);
+      }
+
+      if (action.onNewTerminalCommand?.trim()) {
+        terminal.sendText(action.onNewTerminalCommand.trim());
+      }
+    }
+
+    this.enqueuePendingExecution(terminal, action, resolvedCommand);
     terminal.sendText(resolvedCommand);
   }
 
@@ -251,8 +264,10 @@ export class TerminalManager {
 
     const actual = event.execution.commandLine.value.trim();
     const index = queue.findIndex(pending => this.isCommandMatch(actual, pending.expectedCommand));
-    const resolvedIndex = index >= 0 ? index : 0;
-    const [matched] = queue.splice(resolvedIndex, 1);
+    if (index < 0) {
+      return;
+    }
+    const [matched] = queue.splice(index, 1);
 
     if (queue.length === 0) {
       this.pendingExecutions.delete(event.terminal);
@@ -297,7 +312,10 @@ export class TerminalManager {
     return actual.includes(expected);
   }
 
-  private getOrCreateTerminal(action: Action): vscode.Terminal {
+  private getOrCreateTerminal(action: Action): {
+    terminal: vscode.Terminal;
+    created: boolean;
+  } {
     const terminalName = `[LTA] ${action.section}`;
     const shouldReuse = action.reuseTerminal !== false;
 
@@ -305,12 +323,12 @@ export class TerminalManager {
       // Prefer a live terminal with the matching name
       const existing = vscode.window.terminals.find(t => t.name === terminalName);
       if (existing) {
-        return existing;
+        return { terminal: existing, created: false };
       }
       // Fall back to our tracked map (may have been opened before)
       const tracked = this.terminals.get(terminalName);
       if (tracked && vscode.window.terminals.includes(tracked)) {
-        return tracked;
+        return { terminal: tracked, created: false };
       }
       this.terminals.delete(terminalName);
     }
@@ -338,6 +356,6 @@ export class TerminalManager {
       this.terminals.set(terminalName, terminal);
     }
 
-    return terminal;
+    return { terminal, created: true };
   }
 }

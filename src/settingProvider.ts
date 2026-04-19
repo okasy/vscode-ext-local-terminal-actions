@@ -74,6 +74,36 @@ export class SubtextModeSelectorItem extends vscode.TreeItem {
   }
 }
 
+type GeneralSettingCategory = 'display' | 'behavior' | 'file';
+
+export class GeneralSettingCategoryItem extends vscode.TreeItem {
+  constructor(public readonly category: GeneralSettingCategory) {
+    super(getGeneralSettingCategoryLabel(category), vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = `generalCategory:${category}`;
+    this.iconPath = new vscode.ThemeIcon(getGeneralSettingCategoryIcon(category));
+  }
+}
+
+export class CommonOnNewTerminalCommandItem extends vscode.TreeItem {
+  constructor(value: string | undefined) {
+    super(
+      vscode.l10n.t('Common new terminal pre-command'),
+      vscode.TreeItemCollapsibleState.None
+    );
+    this.contextValue = 'commonOnNewTerminalCommand';
+    this.iconPath = new vscode.ThemeIcon('terminal-bash');
+    this.description = value ? value : vscode.l10n.t('Not set');
+    this.command = {
+      command: 'localTerminalActions.editCommonOnNewTerminalCommand',
+      title: vscode.l10n.t('Edit common new terminal pre-command'),
+      arguments: [this],
+    };
+    this.tooltip = vscode.l10n.t(
+      'Command executed once right after creating a new terminal, before action commands'
+    );
+  }
+}
+
 export class InitActionsFileItem extends vscode.TreeItem {
   constructor() {
     super(
@@ -134,17 +164,19 @@ export class SettingActionItem extends vscode.TreeItem {
 export class SettingProvider
   implements
     vscode.TreeDataProvider<
-      SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >,
     vscode.TreeDragAndDropController<
-      SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >
 {
   readonly dragMimeTypes = ['application/vnd.code.tree.localTerminalActions.settingEditActions'];
   readonly dropMimeTypes = ['application/vnd.code.tree.localTerminalActions.settingEditActions'];
 
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<
+    | GeneralSettingCategoryItem
     | SubtextModeSelectorItem
+    | CommonOnNewTerminalCommandItem
     | SettingSectionItem
     | SettingActionItem
     | InitActionsFileItem
@@ -164,7 +196,9 @@ export class SettingProvider
     source: readonly (
       | InitActionsFileItem
       | OpenActionsFileItem
+      | GeneralSettingCategoryItem
       | SubtextModeSelectorItem
+      | CommonOnNewTerminalCommandItem
       | SettingSectionItem
       | SettingActionItem
     )[],
@@ -198,7 +232,9 @@ export class SettingProvider
     target:
       | InitActionsFileItem
       | OpenActionsFileItem
+      | GeneralSettingCategoryItem
       | SubtextModeSelectorItem
+      | CommonOnNewTerminalCommandItem
       | SettingSectionItem
       | SettingActionItem
       | undefined,
@@ -249,22 +285,26 @@ export class SettingProvider
   }
 
   getTreeItem(
-    element: SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+    element: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem
   ): vscode.TreeItem {
     return element;
   }
 
   getChildren(
-    element?: SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+    element?: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem
   ): vscode.ProviderResult<
-    (SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem)[]
+    (GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem)[]
   > {
     if (!this.actionsManager.hasWorkspace()) {
       return [];
     }
     if (!element) {
       if (this.viewKind === 'general') {
-        return [new SubtextModeSelectorItem(), new InitActionsFileItem(), new OpenActionsFileItem()];
+        return [
+          new GeneralSettingCategoryItem('display'),
+          new GeneralSettingCategoryItem('behavior'),
+          new GeneralSettingCategoryItem('file'),
+        ];
       }
       const sections = this.actionsManager.getSections();
       return sections.map((name, index) => {
@@ -280,6 +320,19 @@ export class SettingProvider
             : 'middle';
         return new SettingSectionItem(name, position);
       });
+    }
+    if (element instanceof GeneralSettingCategoryItem) {
+      if (element.category === 'display') {
+        return [new SubtextModeSelectorItem()];
+      }
+      if (element.category === 'behavior') {
+        return [
+          new CommonOnNewTerminalCommandItem(
+            this.actionsManager.getCommonOnNewTerminalCommand()
+          ),
+        ];
+      }
+      return [new InitActionsFileItem(), new OpenActionsFileItem()];
     }
     if (element instanceof SettingSectionItem) {
       const sectionActions = this.actionsManager.getActionsBySection(
@@ -303,12 +356,42 @@ export class SettingProvider
   }
 }
 
+function getGeneralSettingCategoryLabel(category: GeneralSettingCategory): string {
+  switch (category) {
+    case 'display':
+      return vscode.l10n.t('Display');
+    case 'behavior':
+      return vscode.l10n.t('Behavior');
+    case 'file':
+    default:
+      return vscode.l10n.t('File');
+  }
+}
+
+function getGeneralSettingCategoryIcon(category: GeneralSettingCategory): string {
+  switch (category) {
+    case 'display':
+      return 'eye';
+    case 'behavior':
+      return 'gear';
+    case 'file':
+    default:
+      return 'file';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function buildTooltip(action: Action): vscode.MarkdownString {
   const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
+  if (action.onNewTerminalCommand) {
+    lines.push(
+      '',
+      vscode.l10n.t('New terminal pre-command: `{0}`', action.onNewTerminalCommand)
+    );
+  }
   if (action.terminalProfile) {
     lines.push('', vscode.l10n.t('Profile: `{0}`', action.terminalProfile));
   }

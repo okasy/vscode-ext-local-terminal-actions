@@ -17,6 +17,10 @@
         "minLength": 1
       }
     },
+    "commonOnNewTerminalCommand": {
+      "type": "string",
+      "description": "Optional command that runs once right after a new terminal is created, before action commands. This applies to all actions and is skipped when reusing an existing terminal."
+    },
     "actions": {
       "type": "array",
       "description": "List of terminal actions.",
@@ -51,6 +55,10 @@
           "type": "string",
           "description": "Shell command to execute (e.g. \"docker compose up -d ${variableName}\"). Supports ${variableName} placeholders when variables are defined.",
           "minLength": 1
+        },
+        "onNewTerminalCommand": {
+          "type": "string",
+          "description": "Optional command that runs once right after a new terminal is created, before this action's command. This is skipped when reusing an existing terminal."
         },
         "terminalProfile": {
           "type": "string",

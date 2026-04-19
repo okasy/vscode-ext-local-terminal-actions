@@ -23,7 +23,7 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 
 - **サイドバーに専用アイコン** – アクティビティバーに「Terminal Actions」アイコンが追加されます。
 - **Actions ビュー** – 登録済みコマンドをセクション別のツリーで表示。クリックひとつで実行。
-- **Setting ビュー** – サブテキスト表示の切り替え、actions.json の初期化、actions.json を開く操作をまとめた一般設定ビュー。
+- **Setting ビュー** – サブテキスト表示の切り替え、共通プリコマンド編集、actions.json の初期化、actions.json を開く操作をまとめた一般設定ビュー。
 - **Edit Actions ビュー** – アクションとセクションの編集専用ビュー。ドラッグ&ドロップで並び替えできます。
 - **プロジェクト共有** – `.vscode/actions.json` に保存されるため Git で共有可能。
 - **ターミナルプロファイル選択** – bash / zsh / PowerShell など VS Code に登録されたプロファイルから選択。
@@ -31,7 +31,7 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 - **作業ディレクトリ** – コマンドごとに `cwd` を指定可能。`${workspaceFolder}` が使用できます。
 - **起動パラメータ変数** – コマンド中の `${name}` に対して、実行時に値を入力または選択できます。
 - **実行前確認** – アクションごとに、実行前の確認ダイアログを必須化できます。
-- **クイック追加と詳細編集** – 新規追加は 4 ステップ、編集は 9 ステップのウィザードで詳細設定まで行えます。
+- **クイック追加と詳細編集** – 新規追加は 4 ステップ、編集は 10 ステップのウィザードで詳細設定まで行えます。
 - **セクション管理** – セクションの複製、名前変更、削除に対応しています。
 - **実行ステータス表示** – 実行中、成功、失敗などの状態をツリー上のアイコンで確認できます。
 
@@ -61,19 +61,20 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 - 作業ディレクトリ
 - セクション変更
 
-編集ウィザードは次の 9 項目に対応しています。
+編集ウィザードは次の 10 項目に対応しています。
 
 | ステップ | 項目 | 説明 |
 |---------|------|------|
 | 1 | セクション | 既存セクションへの移動または新規セクション名の入力 |
 | 2 | アクション名 | ツリーに表示する名前 |
 | 3 | コマンド | 実行するシェルコマンド |
-| 4 | 変数定義 | `name=option1|option2|*` 形式で指定 |
-| 5 | 説明 | サブテキストに表示できる任意の説明 |
-| 6 | 実行前確認 | 実行前ダイアログを出すかどうか |
-| 7 | ターミナル再利用 | セクション単位で再利用するかどうか |
-| 8 | ターミナルプロファイル | 使用する VS Code ターミナルプロファイル |
-| 9 | 作業ディレクトリ | `${workspaceFolder}` を含むパス指定が可能 |
+| 4 | 新規ターミナル先行コマンド | 新規ターミナル作成直後に実行する任意コマンド |
+| 5 | 変数定義 | `name=option1|option2|*` 形式で指定 |
+| 6 | 説明 | サブテキストに表示できる任意の説明 |
+| 7 | 実行前確認 | 実行前ダイアログを出すかどうか |
+| 8 | ターミナル再利用 | セクション単位で再利用するかどうか |
+| 9 | ターミナルプロファイル | 使用する VS Code ターミナルプロファイル |
+| 10 | 作業ディレクトリ | `${workspaceFolder}` を含むパス指定が可能 |
 
 ### コマンドの実行
 
@@ -103,6 +104,7 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 
 ```json
 {
+  "commonOnNewTerminalCommand": "source ~/.zshrc",
   "sections": [
     "Docker"
   ],
@@ -112,6 +114,7 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
       "section": "Docker",
       "name": "Start services",
       "command": "docker compose up -d",
+      "onNewTerminalCommand": "source .env.local",
       "terminalProfile": "bash",
       "reuseTerminal": true,
       "cwd": "${workspaceFolder}",
@@ -131,10 +134,12 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 | フィールド | 必須 | 説明 |
 |-----------|------|------|
 | `sections` | — | セクションの表示順。省略時は `actions` から自動推定 |
+| `commonOnNewTerminalCommand` | — | 全アクション共通の先行コマンド。新規ターミナル作成時に 1 回だけ実行（再利用時は実行しない） |
 | `id` | ✓ | 自動生成される一意の ID |
 | `section` | ✓ | ツリーの枝名（グループ） |
 | `name` | ✓ | アクションの表示名 |
 | `command` | ✓ | 実行するシェルコマンド |
+| `onNewTerminalCommand` | — | 新規ターミナル作成直後に 1 回だけ実行する先行コマンド（既存ターミナル再利用時は実行しない） |
 | `terminalProfile` | — | ターミナルプロファイル名 |
 | `reuseTerminal` | — | `true`: セクション単位で再利用（既定）、`false`: 毎回新規 |
 | `cwd` | — | 作業ディレクトリ。`${workspaceFolder}` 使用可 |

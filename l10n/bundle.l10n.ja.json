@@ -98,5 +98,19 @@
   "Create actions.json with the minimal structure, or add missing fields to an existing file": "最小構成で actions.json を作成するか、既存ファイルに不足しているキーを追加します",
   "actions.json created.": "actions.json を作成しました。",
   "actions.json updated.": "actions.json を更新しました。",
-  "actions.json is already up to date.": "actions.json はすでに最新の状態です。"
+  "actions.json is already up to date.": "actions.json はすでに最新の状態です。",
+  "Common new terminal pre-command": "共通の新規ターミナル先行コマンド",
+  "Edit common new terminal pre-command": "共通の新規ターミナル先行コマンドを編集",
+  "Command executed once right after creating a new terminal, before action commands": "新規ターミナル作成直後に 1 回実行され、各アクションのコマンドより先に実行されます",
+  "Optional. Runs once when a new terminal is created, before action commands. Leave empty to clear.": "任意。新規ターミナル作成時に 1 回だけ実行され、各アクションのコマンドより先に実行されます。空欄でクリアします。",
+  "Common new terminal pre-command updated.": "共通の新規ターミナル先行コマンドを更新しました。",
+  "Common new terminal pre-command cleared.": "共通の新規ターミナル先行コマンドをクリアしました。",
+  "Not set": "未設定",
+  "Optional. Command to run right after creating a new terminal, before the action command.": "任意。新規ターミナル作成直後に実行され、アクションコマンドより先に実行されます。",
+  "New Terminal Pre-Command": "新規ターミナル先行コマンド",
+  "e.g. source .env.local": "例: source .env.local",
+  "New terminal pre-command: `{0}`": "新規ターミナル先行コマンド: `{0}`",
+  "Display": "表示",
+  "Behavior": "動作",
+  "File": "ファイル"
 }

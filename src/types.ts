@@ -17,6 +17,8 @@ export interface Action {
   name: string;
   /** Shell command to execute (e.g. "docker compose up -d") */
   command: string;
+  /** Command to run once right after creating a new terminal, before the main action command */
+  onNewTerminalCommand?: string;
   /** Terminal profile name (e.g. "bash", "zsh", "PowerShell") */
   terminalProfile?: string;
   /**
@@ -48,5 +50,7 @@ export type ActionExecutionStatus = 'idle' | 'running' | 'success' | 'warning' |
 export interface ActionsData {
   /** Explicit section order used by the tree view */
   sections?: string[];
+  /** Command to run once after creating a new terminal, before action commands */
+  commonOnNewTerminalCommand?: string;
   actions: Action[];
 }

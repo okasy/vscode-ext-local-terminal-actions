@@ -114,6 +114,11 @@ export class ActionsProvider
 function buildTooltip(action: Action, status: ActionExecutionStatus): vscode.MarkdownString {
   const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
   lines.push('', vscode.l10n.t('Status: {0}', getStatusLabel(status)));
+  if (action.onNewTerminalCommand) {
+    lines.push(
+      vscode.l10n.t('New terminal pre-command: `{0}`', action.onNewTerminalCommand)
+    );
+  }
   if (action.terminalProfile) {
     lines.push('', vscode.l10n.t('Profile: `{0}`', action.terminalProfile));
   }

@@ -6,6 +6,7 @@ import {
   SettingProvider,
   SettingActionItem,
   SettingSectionItem,
+  CommonOnNewTerminalCommandItem,
 } from './settingProvider';
 import { TerminalManager } from './terminalManager';
 import { collectActionInfo } from './inputFlows';
@@ -47,6 +48,8 @@ export function activate(context: vscode.ExtensionContext): void {
     actionsProvider.setActionStatus(actionId, status);
   };
   const terminalManager = new TerminalManager({
+    getCommonOnNewTerminalCommand: () =>
+      actionsManager.getCommonOnNewTerminalCommand(),
     onRunning: action => {
       updateActionStatus(action.id, 'running');
     },
@@ -319,6 +322,43 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showInformationMessage(
           vscode.l10n.t('Section "{0}" deleted.', item.sectionName)
         );
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.editCommonOnNewTerminalCommand',
+      async (_item?: CommonOnNewTerminalCommandItem) => {
+        if (!actionsManager.hasWorkspace()) {
+          vscode.window.showWarningMessage(
+            vscode.l10n.t('Terminal Actions: Please open a workspace folder first.')
+          );
+          return;
+        }
+
+        const current = actionsManager.getCommonOnNewTerminalCommand() ?? '';
+        const next = await vscode.window.showInputBox({
+          title: vscode.l10n.t('Common new terminal pre-command'),
+          prompt: vscode.l10n.t(
+            'Optional. Runs once when a new terminal is created, before action commands. Leave empty to clear.'
+          ),
+          value: current,
+          placeHolder: vscode.l10n.t('e.g. source ~/.zshrc'),
+        });
+        if (next === undefined) {
+          return;
+        }
+
+        actionsManager.setCommonOnNewTerminalCommand(next);
+        refreshAll();
+        if (next.trim()) {
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('Common new terminal pre-command updated.')
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('Common new terminal pre-command cleared.')
+          );
+        }
       }
     ),
 

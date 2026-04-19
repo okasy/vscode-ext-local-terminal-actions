@@ -98,5 +98,19 @@
   "Create actions.json with the minimal structure, or add missing fields to an existing file": "Create actions.json with the minimal structure, or add missing fields to an existing file",
   "actions.json created.": "actions.json created.",
   "actions.json updated.": "actions.json updated.",
-  "actions.json is already up to date.": "actions.json is already up to date."
+  "actions.json is already up to date.": "actions.json is already up to date.",
+  "Common new terminal pre-command": "Common new terminal pre-command",
+  "Edit common new terminal pre-command": "Edit common new terminal pre-command",
+  "Command executed once right after creating a new terminal, before action commands": "Command executed once right after creating a new terminal, before action commands",
+  "Optional. Runs once when a new terminal is created, before action commands. Leave empty to clear.": "Optional. Runs once when a new terminal is created, before action commands. Leave empty to clear.",
+  "Common new terminal pre-command updated.": "Common new terminal pre-command updated.",
+  "Common new terminal pre-command cleared.": "Common new terminal pre-command cleared.",
+  "Not set": "Not set",
+  "Optional. Command to run right after creating a new terminal, before the action command.": "Optional. Command to run right after creating a new terminal, before the action command.",
+  "New Terminal Pre-Command": "New Terminal Pre-Command",
+  "e.g. source .env.local": "e.g. source .env.local",
+  "New terminal pre-command: `{0}`": "New terminal pre-command: `{0}`",
+  "Display": "Display",
+  "Behavior": "Behavior",
+  "File": "File"
 }
