@@ -1,6 +1,6 @@
 {
   "extension.displayName": "Terminal Actions",
-  "extension.description": "Run terminal commands with one click from the sidebar. Commands are saved to .vscode/actions.json for team sharing.",
+  "extension.description": "Run terminal commands with one click from the sidebar. Commands are saved to .vscode/actions.json for team sharing, and .vscode/actions.schema.json is generated so agents can edit the settings file with schema guidance.",
   "views.container.title": "Terminal Actions",
   "views.actions.name": "Actions",
   "views.settingGeneral.name": "Setting",
@@ -15,6 +15,8 @@
   "commands.focusActionTerminal.title": "Focus Terminal",
   "commands.closeActionTerminal.title": "Close Terminal",
   "commands.addAction.title": "Add Action",
+  "commands.enterEditMode.title": "Edit Actions",
+  "commands.exitEditMode.title": "Done",
   "commands.editAction.title": "Edit Action",
   "commands.deleteAction.title": "Delete Action",
   "commands.duplicateAction.title": "Duplicate Action",

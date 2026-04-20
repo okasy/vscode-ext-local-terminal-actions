@@ -26,6 +26,8 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 - **Setting ビュー** – サブテキスト表示の切り替え、共通プリコマンド編集、actions.json の初期化、actions.json を開く操作をまとめた一般設定ビュー。
 - **Edit Actions ビュー** – アクションとセクションの編集専用ビュー。ドラッグ&ドロップで並び替えできます。
 - **プロジェクト共有** – `.vscode/actions.json` に保存されるため Git で共有可能。
+- **Schema 自動配置** – `.vscode/actions.schema.json` を自動配置し、`actions.json` に `$schema` を設定。
+- **Agent 編集に対応** – schema 定義により、Agent が設定ファイルを安全に補完・検証しながら編集できます。
 - **ターミナルプロファイル選択** – bash / zsh / PowerShell など VS Code に登録されたプロファイルから選択。
 - **ターミナル再利用** – セクション単位でターミナルを再利用するか、毎回新規作成するかを設定可能。
 - **作業ディレクトリ** – コマンドごとに `cwd` を指定可能。`${workspaceFolder}` が使用できます。
@@ -101,6 +103,9 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 ---
 
 ## actions.json の形式
+
+`actions.json` の保存時に `.vscode/actions.schema.json` が配置され、`$schema: './actions.schema.json'` が自動付与されます。
+これにより、JSON スキーマに基づく補完・検証に加えて、Agent に設定ファイル編集を任せやすくなります。
 
 ```json
 {

@@ -13,6 +13,7 @@ import { collectActionInfo } from './inputFlows';
 import { ActionExecutionStatus } from './types';
 
 type TreeSubtextMode = 'command' | 'description' | 'hidden';
+const EDIT_MODE_CONTEXT_KEY = 'localTerminalActions.editMode';
 
 function getTreeSubtextMode(): TreeSubtextMode {
   const mode = vscode.workspace
@@ -94,6 +95,9 @@ export function activate(context: vscode.ExtensionContext): void {
       .getConfiguration('localTerminalActions')
       .update('treeSubtextMode', mode, target);
   };
+  const setEditMode = async (enabled: boolean): Promise<void> => {
+    await vscode.commands.executeCommand('setContext', EDIT_MODE_CONTEXT_KEY, enabled);
+  };
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
@@ -124,6 +128,7 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   void updateSubtextModeContext();
+  void setEditMode(false);
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(event => {
@@ -153,6 +158,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'localTerminalActions.runActionWithConfirm',
       runActionItem
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.enterEditMode',
+      async () => {
+        await setEditMode(true);
+        await vscode.commands.executeCommand('localTerminalActions.settingEditActions.focus');
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.exitEditMode',
+      async () => {
+        await setEditMode(false);
+        await vscode.commands.executeCommand('localTerminalActions.actions.focus');
+      }
     ),
 
     vscode.commands.registerCommand(

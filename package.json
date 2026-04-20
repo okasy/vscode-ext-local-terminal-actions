@@ -2,7 +2,7 @@
   "name": "local-terminal-actions",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "publisher": "okasy",
   "license": "MIT",
   "repository": {
@@ -34,15 +34,17 @@
       "localTerminalActions": [
         {
           "id": "localTerminalActions.actions",
-          "name": "%views.actions.name%"
+          "name": "%views.actions.name%",
+          "when": "!localTerminalActions.editMode"
+        },
+        {
+          "id": "localTerminalActions.settingEditActions",
+          "name": "%views.settingEditActions.name%",
+          "when": "localTerminalActions.editMode"
         },
         {
           "id": "localTerminalActions.settingGeneral",
           "name": "%views.settingGeneral.name%"
-        },
-        {
-          "id": "localTerminalActions.settingEditActions",
-          "name": "%views.settingEditActions.name%"
         }
       ]
     },
@@ -110,6 +112,16 @@
         "command": "localTerminalActions.addAction",
         "title": "%commands.addAction.title%",
         "icon": "$(add)"
+      },
+      {
+        "command": "localTerminalActions.enterEditMode",
+        "title": "%commands.enterEditMode.title%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "localTerminalActions.exitEditMode",
+        "title": "%commands.exitEditMode.title%",
+        "icon": "$(check)"
       },
       {
         "command": "localTerminalActions.editAction",
@@ -205,8 +217,18 @@
     "menus": {
       "view/title": [
         {
+          "command": "localTerminalActions.enterEditMode",
+          "when": "view == localTerminalActions.actions && !localTerminalActions.editMode",
+          "group": "navigation"
+        },
+        {
           "command": "localTerminalActions.addAction",
-          "when": "view == localTerminalActions.actions",
+          "when": "(view == localTerminalActions.actions && !localTerminalActions.editMode) || (view == localTerminalActions.settingEditActions && localTerminalActions.editMode)",
+          "group": "navigation"
+        },
+        {
+          "command": "localTerminalActions.exitEditMode",
+          "when": "view == localTerminalActions.settingEditActions && localTerminalActions.editMode",
           "group": "navigation"
         },
         {
