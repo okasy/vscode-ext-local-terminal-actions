@@ -21,6 +21,11 @@
       "type": "string",
       "description": "Optional command that runs once right after a new terminal is created, before action commands. This applies to all actions and is skipped when reusing an existing terminal."
     },
+    "newTerminalDelaySeconds": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Optional. Seconds to wait after a new terminal is created, before running commonOnNewTerminalCommand or onNewTerminalCommand. Useful when the editor automatically loads source files on terminal open."
+    },
     "actions": {
       "type": "array",
       "description": "List of terminal actions.",

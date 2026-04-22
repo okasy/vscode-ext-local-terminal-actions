@@ -95,7 +95,7 @@
   "Terminal Actions: No workspace folder open. Please open a folder first.": "Terminal Actions: No workspace folder open. Please open a folder first."
   ,
   "Create / adjust settings file": "Create / adjust settings file",
-  "Create actions.json with the minimal structure, or add missing fields to an existing file": "Create actions.json with the minimal structure, or add missing fields to an existing file",
+  "Create actions.json with the minimal structure, or add missing fields to an existing file": "Create actions.json with the minimal structure, or add missing fields to an existing file. Also places / updates actions.schema.json.",
   "actions.json created.": "actions.json created.",
   "actions.json updated.": "actions.json updated.",
   "actions.json is already up to date.": "actions.json is already up to date.",
@@ -112,5 +112,13 @@
   "New terminal pre-command: `{0}`": "New terminal pre-command: `{0}`",
   "Display": "Display",
   "Behavior": "Behavior",
-  "File": "File"
+  "File": "File",
+  "New terminal delay seconds": "New terminal delay seconds",
+  "Edit new terminal delay seconds": "Edit new terminal delay seconds",
+  "Seconds to wait after a new terminal is created, before running pre-commands": "Seconds to wait after a new terminal is created, before running pre-commands",
+  "Seconds to wait after a new terminal is created, before running pre-commands. Leave empty to clear.": "Seconds to wait after a new terminal is created, before running pre-commands. Leave empty to clear.",
+  "e.g. 2": "e.g. 2",
+  "Enter a non-negative number.": "Enter a non-negative number.",
+  "New terminal delay seconds set to {0}.": "New terminal delay seconds set to {0}.",
+  "New terminal delay seconds cleared.": "New terminal delay seconds cleared."
 }

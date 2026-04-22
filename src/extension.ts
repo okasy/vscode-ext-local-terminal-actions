@@ -7,6 +7,7 @@ import {
   SettingActionItem,
   SettingSectionItem,
   CommonOnNewTerminalCommandItem,
+  NewTerminalDelaySecondsItem,
 } from './settingProvider';
 import { TerminalManager } from './terminalManager';
 import { collectActionInfo } from './inputFlows';
@@ -51,6 +52,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const terminalManager = new TerminalManager({
     getCommonOnNewTerminalCommand: () =>
       actionsManager.getCommonOnNewTerminalCommand(),
+    getNewTerminalDelaySeconds: () =>
+      actionsManager.getNewTerminalDelaySeconds(),
     onRunning: action => {
       updateActionStatus(action.id, 'running');
     },
@@ -378,6 +381,55 @@ export function activate(context: vscode.ExtensionContext): void {
         } else {
           vscode.window.showInformationMessage(
             vscode.l10n.t('Common new terminal pre-command cleared.')
+          );
+        }
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.editNewTerminalDelaySeconds',
+      async (_item?: NewTerminalDelaySecondsItem) => {
+        if (!actionsManager.hasWorkspace()) {
+          vscode.window.showWarningMessage(
+            vscode.l10n.t('Terminal Actions: Please open a workspace folder first.')
+          );
+          return;
+        }
+
+        const current = actionsManager.getNewTerminalDelaySeconds();
+        const input = await vscode.window.showInputBox({
+          title: vscode.l10n.t('New terminal delay seconds'),
+          prompt: vscode.l10n.t(
+            'Seconds to wait after a new terminal is created, before running pre-commands. Leave empty to clear.'
+          ),
+          value: current !== undefined ? String(current) : '',
+          placeHolder: vscode.l10n.t('e.g. 2'),
+          validateInput: v => {
+            if (v.trim() === '') {
+              return undefined;
+            }
+            const n = Number(v.trim());
+            if (!Number.isFinite(n) || n < 0) {
+              return vscode.l10n.t('Enter a non-negative number.');
+            }
+            return undefined;
+          },
+        });
+        if (input === undefined) {
+          return;
+        }
+
+        const trimmed = input.trim();
+        const seconds = trimmed === '' ? undefined : Number(trimmed);
+        actionsManager.setNewTerminalDelaySeconds(seconds);
+        refreshAll();
+        if (seconds !== undefined && seconds > 0) {
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('New terminal delay seconds set to {0}.', seconds)
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('New terminal delay seconds cleared.')
           );
         }
       }

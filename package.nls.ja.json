@@ -25,6 +25,7 @@
   "commands.renameSection.title": "セクション名を変更",
   "commands.openActionsFile.title": "actions.json を開く",
   "commands.editCommonOnNewTerminalCommand.title": "共通の新規ターミナル先行コマンドを編集",
+  "commands.editNewTerminalDelaySeconds.title": "新規ターミナル実行待機秒数を編集",
   "commands.cycleSubtextModeFromCommand.title": "表示: コマンド (次: 説明)",
   "commands.cycleSubtextModeFromDescription.title": "表示: 説明 (次: 非表示)",
   "commands.cycleSubtextModeFromHidden.title": "表示: 非表示 (次: コマンド)",

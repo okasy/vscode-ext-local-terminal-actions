@@ -2,6 +2,15 @@
 
 このファイルは、この拡張機能の主要な変更を記録します。
 
+## 0.9.2 - 2026-04-23
+
+### Added
+
+- 新規ターミナル起動時に実行するコマンド設定（`onNewTerminalCommand`）を追加
+- 全アクション共通の新規ターミナルコマンド設定（`commonOnNewTerminalCommand`）を追加
+- 新規ターミナル起動後の遅延秒数設定（`newTerminalDelaySeconds`）を追加
+- `localTerminalActions.editNewTerminalDelaySeconds` コマンドを追加
+
 ## 0.9.1 - 2026-04-20
 
 ### Changed

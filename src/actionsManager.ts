@@ -106,7 +106,12 @@ export class ActionsManager {
 
   private getData(): ActionsData {
     if (!this.actionsFilePath || !fs.existsSync(this.actionsFilePath)) {
-      return { actions: [], sections: [], commonOnNewTerminalCommand: undefined };
+      return {
+        actions: [],
+        sections: [],
+        commonOnNewTerminalCommand: undefined,
+        newTerminalDelaySeconds: undefined,
+      };
     }
     try {
       const content = fs.readFileSync(this.actionsFilePath, 'utf-8');
@@ -121,10 +126,17 @@ export class ActionsManager {
         typeof rawData.commonOnNewTerminalCommand === 'string'
           ? rawData.commonOnNewTerminalCommand.trim() || undefined
           : undefined;
+      const newTerminalDelaySeconds =
+        typeof rawData.newTerminalDelaySeconds === 'number' &&
+        Number.isFinite(rawData.newTerminalDelaySeconds) &&
+        rawData.newTerminalDelaySeconds > 0
+          ? rawData.newTerminalDelaySeconds
+          : undefined;
       const normalized: ActionsData = {
         actions,
         sections,
         commonOnNewTerminalCommand,
+        newTerminalDelaySeconds,
       };
       if (changed) {
         this.writeDataFile(normalized);
@@ -134,7 +146,12 @@ export class ActionsManager {
       vscode.window.showErrorMessage(
         vscode.l10n.t('Terminal Actions: Failed to read actions.json - {0}', String(err))
       );
-      return { actions: [], sections: [], commonOnNewTerminalCommand: undefined };
+      return {
+        actions: [],
+        sections: [],
+        commonOnNewTerminalCommand: undefined,
+        newTerminalDelaySeconds: undefined,
+      };
     }
   }
 
@@ -160,6 +177,25 @@ export class ActionsManager {
     this.saveData(data);
   }
 
+  /**
+   * Returns the configured delay (in seconds) to wait before running
+   * commonOnNewTerminalCommand / onNewTerminalCommand on a freshly created terminal.
+   */
+  getNewTerminalDelaySeconds(): number | undefined {
+    return this.getData().newTerminalDelaySeconds;
+  }
+
+  /**
+   * Persists the delay seconds setting to actions.json.
+   * Pass undefined or 0 to clear the setting.
+   */
+  setNewTerminalDelaySeconds(seconds: number | undefined): void {
+    const data = this.getData();
+    data.newTerminalDelaySeconds =
+      seconds !== undefined && seconds > 0 ? seconds : undefined;
+    this.saveData(data);
+  }
+
   private saveData(data: ActionsData): void {
     if (!this.actionsFilePath) {
       vscode.window.showWarningMessage(
@@ -171,6 +207,7 @@ export class ActionsManager {
       actions: data.actions,
       sections: this.normalizeSections(data.sections, data.actions),
       commonOnNewTerminalCommand: data.commonOnNewTerminalCommand,
+      newTerminalDelaySeconds: data.newTerminalDelaySeconds,
     });
   }
 

@@ -52,5 +52,11 @@ export interface ActionsData {
   sections?: string[];
   /** Command to run once after creating a new terminal, before action commands */
   commonOnNewTerminalCommand?: string;
+  /**
+   * Seconds to wait after a new terminal is created, before running
+   * commonOnNewTerminalCommand / onNewTerminalCommand.
+   * Useful when the editor automatically loads source files on terminal open.
+   */
+  newTerminalDelaySeconds?: number;
   actions: Action[];
 }

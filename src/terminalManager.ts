@@ -16,6 +16,7 @@ interface ExecutionTrackingCallbacks {
   onRunning?: (action: Action) => void;
   onCompleted?: (action: Action, exitCode: number | undefined) => void;
   getCommonOnNewTerminalCommand?: () => string | undefined;
+  getNewTerminalDelaySeconds?: () => number | undefined;
 }
 
 /**
@@ -111,6 +112,11 @@ export class TerminalManager {
     await new Promise<void>(resolve => setTimeout(resolve, 300));
 
     if (created) {
+      const delaySeconds = this.callbacks.getNewTerminalDelaySeconds?.() ?? 0;
+      if (delaySeconds > 0) {
+        await new Promise<void>(resolve => setTimeout(resolve, delaySeconds * 1000));
+      }
+
       const commonPreCommand =
         this.callbacks.getCommonOnNewTerminalCommand?.()?.trim() || undefined;
       if (commonPreCommand) {

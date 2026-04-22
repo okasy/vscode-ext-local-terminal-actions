@@ -2,7 +2,7 @@
   "name": "local-terminal-actions",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "publisher": "okasy",
   "license": "MIT",
   "repository": {
@@ -164,6 +164,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "localTerminalActions.editNewTerminalDelaySeconds",
+        "title": "%commands.editNewTerminalDelaySeconds.title%",
+        "icon": "$(edit)"
+      },
+      {
         "command": "localTerminalActions.refresh",
         "title": "%commands.refresh.title%",
         "icon": "$(refresh)"
@@ -291,6 +296,11 @@
         {
           "command": "localTerminalActions.editCommonOnNewTerminalCommand",
           "when": "view == localTerminalActions.settingGeneral && viewItem == commonOnNewTerminalCommand",
+          "group": "inline"
+        },
+        {
+          "command": "localTerminalActions.editNewTerminalDelaySeconds",
+          "when": "view == localTerminalActions.settingGeneral && viewItem == newTerminalDelaySeconds",
           "group": "inline"
         },
         {

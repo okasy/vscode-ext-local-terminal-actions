@@ -95,7 +95,7 @@
   "Terminal Actions: No workspace folder open. Please open a folder first.": "Terminal Actions: ワークスペースフォルダーが開かれていません。先にフォルダーを開いてください。"
   ,
   "Create / adjust settings file": "設定ファイルの作成・調整",
-  "Create actions.json with the minimal structure, or add missing fields to an existing file": "最小構成で actions.json を作成するか、既存ファイルに不足しているキーを追加します",
+  "Create actions.json with the minimal structure, or add missing fields to an existing file": "最小構成で actions.json を作成するか、既存ファイルに不足しているキーを追加します。actions.schema.json の配置・更新も行います。",
   "actions.json created.": "actions.json を作成しました。",
   "actions.json updated.": "actions.json を更新しました。",
   "actions.json is already up to date.": "actions.json はすでに最新の状態です。",
@@ -112,5 +112,13 @@
   "New terminal pre-command: `{0}`": "新規ターミナル先行コマンド: `{0}`",
   "Display": "表示",
   "Behavior": "動作",
-  "File": "ファイル"
+  "File": "ファイル",
+  "New terminal delay seconds": "新規ターミナル実行待機秒数",
+  "Edit new terminal delay seconds": "新規ターミナル実行待機秒数を編集",
+  "Seconds to wait after a new terminal is created, before running pre-commands": "新規ターミナル作成後、先行コマンド実行前に待機する秒数",
+  "Seconds to wait after a new terminal is created, before running pre-commands. Leave empty to clear.": "新規ターミナル作成後、先行コマンド実行前に待機する秒数。空欄でクリアします。",
+  "e.g. 2": "例: 2",
+  "Enter a non-negative number.": "0 以上の数値を入力してください。",
+  "New terminal delay seconds set to {0}.": "新規ターミナル実行待機秒数を {0} 秒に設定しました。",
+  "New terminal delay seconds cleared.": "新規ターミナル実行待機秒数をクリアしました。"
 }

@@ -84,6 +84,27 @@ export class GeneralSettingCategoryItem extends vscode.TreeItem {
   }
 }
 
+export class NewTerminalDelaySecondsItem extends vscode.TreeItem {
+  constructor(value: number | undefined) {
+    super(
+      vscode.l10n.t('New terminal delay seconds'),
+      vscode.TreeItemCollapsibleState.None
+    );
+    this.contextValue = 'newTerminalDelaySeconds';
+    this.iconPath = new vscode.ThemeIcon('watch');
+    this.description =
+      value !== undefined && value > 0 ? String(value) : vscode.l10n.t('Not set');
+    this.command = {
+      command: 'localTerminalActions.editNewTerminalDelaySeconds',
+      title: vscode.l10n.t('Edit new terminal delay seconds'),
+      arguments: [this],
+    };
+    this.tooltip = vscode.l10n.t(
+      'Seconds to wait after a new terminal is created, before running pre-commands'
+    );
+  }
+}
+
 export class CommonOnNewTerminalCommandItem extends vscode.TreeItem {
   constructor(value: string | undefined) {
     super(
@@ -164,10 +185,10 @@ export class SettingActionItem extends vscode.TreeItem {
 export class SettingProvider
   implements
     vscode.TreeDataProvider<
-      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >,
     vscode.TreeDragAndDropController<
-      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
+      GeneralSettingCategoryItem | SubtextModeSelectorItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem
     >
 {
   readonly dragMimeTypes = ['application/vnd.code.tree.localTerminalActions.settingEditActions'];
@@ -177,6 +198,7 @@ export class SettingProvider
     | GeneralSettingCategoryItem
     | SubtextModeSelectorItem
     | CommonOnNewTerminalCommandItem
+    | NewTerminalDelaySecondsItem
     | SettingSectionItem
     | SettingActionItem
     | InitActionsFileItem
@@ -285,15 +307,15 @@ export class SettingProvider
   }
 
   getTreeItem(
-    element: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem
+    element: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem
   ): vscode.TreeItem {
     return element;
   }
 
   getChildren(
-    element?: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem
+    element?: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem
   ): vscode.ProviderResult<
-    (GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem)[]
+    (GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem)[]
   > {
     if (!this.actionsManager.hasWorkspace()) {
       return [];
@@ -327,6 +349,9 @@ export class SettingProvider
       }
       if (element.category === 'behavior') {
         return [
+          new NewTerminalDelaySecondsItem(
+            this.actionsManager.getNewTerminalDelaySeconds()
+          ),
           new CommonOnNewTerminalCommandItem(
             this.actionsManager.getCommonOnNewTerminalCommand()
           ),

@@ -25,6 +25,7 @@
   "commands.renameSection.title": "Rename Section",
   "commands.openActionsFile.title": "Open actions.json",
   "commands.editCommonOnNewTerminalCommand.title": "Edit Common New Terminal Pre-Command",
+  "commands.editNewTerminalDelaySeconds.title": "Edit New Terminal Delay Seconds",
   "commands.cycleSubtextModeFromCommand.title": "Mode: Command (Next: Description)",
   "commands.cycleSubtextModeFromDescription.title": "Mode: Description (Next: Hidden)",
   "commands.cycleSubtextModeFromHidden.title": "Mode: Hidden (Next: Command)",
