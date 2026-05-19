@@ -1,19 +1,21 @@
 # Terminal Actions
 
-[![Version](https://img.shields.io/visual-studio-marketplace/v/okasy.local-terminal-actions?label=Version)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
+[![Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/okasy.local-terminal-actions?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/okasy.local-terminal-actions?label=Installs)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/okasy.local-terminal-actions?label=Rating)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
 
 ターミナルで任意のコマンドをワンボタンで起動させられるようになる VS Code 拡張です。
 
 登録したコマンドはプロジェクトの `.vscode/actions.json` に保存され、チームで共有できます。
 
-Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions
+Marketplace: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
 
 ---
 
 ## インストール
 
 - VS Code Marketplace からインストール:
-  https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions
+  [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
 - VS Code のクイックオープン（`Cmd+P`）で次を実行:
   `ext install okasy.local-terminal-actions`
 
@@ -23,8 +25,8 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 
 - **サイドバーに専用アイコン** – アクティビティバーに「Terminal Actions」アイコンが追加されます。
 - **Actions ビュー** – 登録済みコマンドをセクション別のツリーで表示。クリックひとつで実行。
-- **Setting ビュー** – サブテキスト表示の切り替え、共通プリコマンド編集、actions.json の初期化、actions.json を開く操作をまとめた一般設定ビュー。
-- **Edit Actions ビュー** – アクションとセクションの編集専用ビュー。ドラッグ&ドロップで並び替えできます。
+- **Setting ビュー** – サブテキスト表示の切り替え、新規ターミナル待機秒数と共通プリコマンドの編集、actions.json の作成・調整、actions.json を開く操作をまとめた一般設定ビュー。
+- **Edit Actions ビュー** – アクション名変更、説明変更、複製、削除と、セクション複製、名前変更、削除に対応した編集専用ビュー。ドラッグ&ドロップで並び替えできます。
 - **プロジェクト共有** – `.vscode/actions.json` に保存されるため Git で共有可能。
 - **Schema 自動配置** – `.vscode/actions.schema.json` を自動配置し、`actions.json` に `$schema` を設定。
 - **Agent 編集に対応** – schema 定義により、Agent が設定ファイルを安全に補完・検証しながら編集できます。
@@ -48,7 +50,7 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 3. Add new では 4 ステップの基本項目を入力する。
 
 | ステップ | 項目 | 説明 |
-|---------|------|------|
+| --- | --- | --- |
 | 1 | セクション | ツリーの枝名。既存から選択または新規入力 |
 | 2 | アクション名 | 表示名（例: `Start services`） |
 | 3 | コマンド | 実行するシェルコマンド（例: `docker compose up -d`） |
@@ -66,12 +68,12 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 編集ウィザードは次の 10 項目に対応しています。
 
 | ステップ | 項目 | 説明 |
-|---------|------|------|
+| --- | --- | --- |
 | 1 | セクション | 既存セクションへの移動または新規セクション名の入力 |
 | 2 | アクション名 | ツリーに表示する名前 |
 | 3 | コマンド | 実行するシェルコマンド |
 | 4 | 新規ターミナル先行コマンド | 新規ターミナル作成直後に実行する任意コマンド |
-| 5 | 変数定義 | `name=option1|option2|*` 形式で指定 |
+| 5 | 変数定義 | `name=option1\|option2\|*` 形式で指定 |
 | 6 | 説明 | サブテキストに表示できる任意の説明 |
 | 7 | 実行前確認 | 実行前ダイアログを出すかどうか |
 | 8 | ターミナル再利用 | セクション単位で再利用するかどうか |
@@ -83,11 +85,12 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 - **Actions** ビューのアクション名をクリック、または右クリック → **Run Action**。
 - インラインの `▶` ボタンでも実行できます。
 
-### コマンドの編集・削除
+### コマンドの編集・複製・削除
 
-- **Edit Actions** ビューのアクション名をクリック → 編集ウィザードが開きます。
-- 右クリック → **Edit Action** / **Delete Action**。
-- インラインの `✏` / `🗑` ボタンを使用することもできます。
+- **Actions** ビューの右クリックから **Rename Action** / **Edit Description** を実行できます。
+- **Edit Actions** ビューのアクション名をクリックすると、10 項目の編集ウィザードが開きます。
+- **Edit Actions** ビューの右クリックから **Edit Action** / **Duplicate Action** / **Rename Action** / **Edit Description** / **Delete Action** を実行できます。
+- インラインの `✏` / `⧉` / `🗑` ボタンでも編集・複製・削除を実行できます。
 
 ### セクションの管理
 
@@ -97,19 +100,22 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 ### Setting ビューでできること
 
 - ツリーのサブテキスト表示を「コマンド / 説明 / 非表示」で切り替え
-- `.vscode/actions.json` の初期化
+- 新規ターミナル起動後の待機秒数を編集
+- 全アクション共通の新規ターミナル先行コマンドを編集
+- `.vscode/actions.json` を最小構成で作成、または不足キーを補完
 - `.vscode/actions.json` をエディターで開く
 
 ---
 
 ## actions.json の形式
 
-`actions.json` の保存時に `.vscode/actions.schema.json` が配置され、`$schema: './actions.schema.json'` が自動付与されます。
+**Create / Adjust Settings File** を実行すると、`.vscode/actions.json` が存在しない場合は最小構成で作成されます。既存ファイルがある場合は `.vscode/actions.schema.json` を配置し、`$schema` / `sections` / `actions` など不足しているルートキーを補完します。
 これにより、JSON スキーマに基づく補完・検証に加えて、Agent に設定ファイル編集を任せやすくなります。
 
 ```json
 {
   "commonOnNewTerminalCommand": "source ~/.zshrc",
+  "newTerminalDelaySeconds": 1.5,
   "sections": [
     "Docker"
   ],
@@ -137,9 +143,10 @@ Marketplace: https://marketplace.visualstudio.com/items?itemName=okasy.local-ter
 ```
 
 | フィールド | 必須 | 説明 |
-|-----------|------|------|
+| --- | --- | --- |
 | `sections` | — | セクションの表示順。省略時は `actions` から自動推定 |
 | `commonOnNewTerminalCommand` | — | 全アクション共通の先行コマンド。新規ターミナル作成時に 1 回だけ実行（再利用時は実行しない） |
+| `newTerminalDelaySeconds` | — | 新規ターミナル作成後、先行コマンドを実行するまで待機する秒数 |
 | `id` | ✓ | 自動生成される一意の ID |
 | `section` | ✓ | ツリーの枝名（グループ） |
 | `name` | ✓ | アクションの表示名 |

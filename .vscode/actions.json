@@ -19,12 +19,12 @@
       "reuseTerminal": false
     },
     {
-      "id": "test-smoke-compile",
+      "id": "test-run-all",
       "section": "テスト",
-      "name": "簡易テスト (compile)",
-      "command": "npm run compile",
+      "name": "テストを実行",
+      "command": "npm test",
       "cwd": "${workspaceFolder}",
-      "description": "専用の test スクリプトが未定義のため、まずは compile を簡易テストとして実行します"
+      "description": "追加した単体テストを含めてテスト一式を実行します"
     },
     {
       "id": "build-compile",
