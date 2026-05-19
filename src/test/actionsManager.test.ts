@@ -1,0 +1,428 @@
+import test = require('node:test');
+import assert = require('node:assert/strict');
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { Action } from '../types';
+
+interface VscodeStubModule {
+  window: {
+    showErrorMessage: (message: string) => void;
+    showWarningMessage: (message: string) => void;
+  };
+  l10n: {
+    t: (message: string, ...args: unknown[]) => string;
+  };
+}
+
+interface LoadedFixture {
+  manager: InstanceType<typeof import('../actionsManager').ActionsManager>;
+  workspaceRoot: string;
+  actionsFilePath: string;
+  schemaDestPath: string;
+  errors: string[];
+  warnings: string[];
+  readData: () => Record<string, unknown>;
+}
+
+interface ModuleLoader {
+  _load: (request: string, parent: NodeModule | undefined, isMain: boolean) => unknown;
+}
+
+/**
+ * プレースホルダー付きローカライズ文字列を簡易的に整形します。
+ */
+function formatMessage(message: string, args: unknown[]): string {
+  return message.replace(/\{(\d+)\}/g, (_, index: string) => {
+    const value = args[Number(index)];
+    return value === undefined ? '' : String(value);
+  });
+}
+
+/**
+ * ActionsManager が必要とする最小限の vscode モジュールを組み立てます。
+ */
+function createVscodeStub(): {
+  module: VscodeStubModule;
+  errors: string[];
+  warnings: string[];
+} {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  return {
+    module: {
+      window: {
+        showErrorMessage: (message: string) => {
+          errors.push(message);
+        },
+        showWarningMessage: (message: string) => {
+          warnings.push(message);
+        },
+      },
+      l10n: {
+        t: (message: string, ...args: unknown[]) => formatMessage(message, args),
+      },
+    },
+    errors,
+    warnings,
+  };
+}
+
+/**
+ * vscode 依存をスタブへ差し替えた状態で ActionsManager を読み込みます。
+ */
+function loadActionsManager(vscodeModule: VscodeStubModule): typeof import('../actionsManager').ActionsManager {
+  const moduleLoader = require('module') as ModuleLoader;
+  const originalLoad = moduleLoader._load;
+  const targetPath = path.resolve(__dirname, '..', 'actionsManager.js');
+
+  moduleLoader._load = function patchedLoad(
+    request: string,
+    parent: NodeModule | undefined,
+    isMain: boolean
+  ): unknown {
+    if (request === 'vscode') {
+      return vscodeModule;
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    delete require.cache[require.resolve(targetPath)];
+    return (require(targetPath) as typeof import('../actionsManager')).ActionsManager;
+  } finally {
+    moduleLoader._load = originalLoad;
+  }
+}
+
+/**
+ * テスト用の actions.json ワークスペースとスキーマ配置を作成します。
+ */
+function createWorkspaceFixture(initialData?: unknown): {
+  workspaceRoot: string;
+  actionsFilePath: string;
+  schemaDestPath: string;
+  extensionPath: string;
+  readData: () => Record<string, unknown>;
+} {
+  const tmpRoot = path.join(process.cwd(), '.tmp');
+  fs.mkdirSync(tmpRoot, { recursive: true });
+
+  const workspaceRoot = fs.mkdtempSync(path.join(tmpRoot, 'actions-manager-'));
+  const vscodeDir = path.join(workspaceRoot, '.vscode');
+  fs.mkdirSync(vscodeDir, { recursive: true });
+
+  const actionsFilePath = path.join(vscodeDir, 'actions.json');
+  if (initialData !== undefined) {
+    fs.writeFileSync(actionsFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
+  }
+
+  const extensionPath = path.join(workspaceRoot, 'extension');
+  const schemaSourceDir = path.join(extensionPath, 'schemas');
+  fs.mkdirSync(schemaSourceDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(schemaSourceDir, 'actions.schema.json'),
+    JSON.stringify({ type: 'object', additionalProperties: true }, null, 2),
+    'utf-8'
+  );
+
+  return {
+    workspaceRoot,
+    actionsFilePath,
+    schemaDestPath: path.join(vscodeDir, 'actions.schema.json'),
+    extensionPath,
+    readData: () => JSON.parse(fs.readFileSync(actionsFilePath, 'utf-8')) as Record<string, unknown>,
+  };
+}
+
+/**
+ * 1 テスト分の ActionsManager と周辺ファイル群をまとめて用意します。
+ */
+function createFixture(initialData?: unknown): LoadedFixture {
+  const vscode = createVscodeStub();
+  const workspace = createWorkspaceFixture(initialData);
+  const ActionsManager = loadActionsManager(vscode.module);
+
+  return {
+    manager: new ActionsManager(workspace.workspaceRoot, workspace.extensionPath),
+    workspaceRoot: workspace.workspaceRoot,
+    actionsFilePath: workspace.actionsFilePath,
+    schemaDestPath: workspace.schemaDestPath,
+    errors: vscode.errors,
+    warnings: vscode.warnings,
+    readData: workspace.readData,
+  };
+}
+
+/**
+ * テストで扱う最小限の Action オブジェクトを生成します。
+ */
+function createAction(id: string, section: string, name: string, command = 'echo ok'): Action {
+  return {
+    id,
+    section,
+    name,
+    command,
+  };
+}
+
+test('initActionsFile creates a minimal actions.json and copies the schema', t => {
+  const fixture = createFixture();
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.initActionsFile(), 'created');
+  assert.equal(fs.existsSync(fixture.actionsFilePath), true);
+  assert.equal(fs.existsSync(fixture.schemaDestPath), true);
+  assert.deepEqual(fixture.readData(), {
+    $schema: './actions.schema.json',
+    sections: [],
+    actions: [],
+  });
+});
+
+test('initActionsFile patches missing root keys and canonicalizes action order', t => {
+  const fixture = createFixture({
+    note: 'keep me',
+    sections: ['alpha', 'beta'],
+    actions: [
+      createAction('b', 'beta', 'Beta'),
+      createAction('a', 'alpha', 'Alpha'),
+      createAction('c', 'gamma', 'Gamma'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.initActionsFile(), 'updated');
+
+  const data = fixture.readData();
+  assert.equal(data.$schema, './actions.schema.json');
+  assert.equal(data.note, 'keep me');
+  assert.deepEqual((data.actions as Action[]).map(action => action.name), [
+    'Alpha',
+    'Beta',
+    'Gamma',
+  ]);
+});
+
+test('getters normalize ids, sections, and optional settings when reading', t => {
+  const fixture = createFixture({
+    sections: ['beta', '', 'beta', 'unused'],
+    commonOnNewTerminalCommand: '  npm install  ',
+    newTerminalDelaySeconds: 0,
+    actions: [
+      createAction('', 'beta', 'First'),
+      createAction('dup', 'alpha', 'Second'),
+      createAction('dup', 'beta', 'Third'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  const actions = fixture.manager.getActions();
+  const ids = actions.map(action => action.id);
+
+  assert.equal(actions.length, 3);
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(ids.every(id => id.trim().length > 0), true);
+  assert.deepEqual(fixture.manager.getSections(), ['beta', 'alpha']);
+  assert.equal(fixture.manager.getCommonOnNewTerminalCommand(), 'npm install');
+  assert.equal(fixture.manager.getNewTerminalDelaySeconds(), undefined);
+  assert.equal(fixture.errors.length, 0);
+
+  const saved = fixture.readData();
+  assert.equal(new Set((saved.actions as Action[]).map(action => action.id)).size, 3);
+});
+
+test('addAction and setting updates persist normalized values', t => {
+  const fixture = createFixture({ sections: [], actions: [] });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  const added = fixture.manager.addAction({
+    section: 'build',
+    name: 'Compile',
+    command: 'npm run compile',
+  });
+  fixture.manager.setCommonOnNewTerminalCommand('  echo setup  ');
+  fixture.manager.setNewTerminalDelaySeconds(5);
+
+  assert.equal(added.id.trim().length > 0, true);
+  assert.deepEqual(fixture.manager.getSections(), ['build']);
+  assert.equal(fixture.manager.getCommonOnNewTerminalCommand(), 'echo setup');
+  assert.equal(fixture.manager.getNewTerminalDelaySeconds(), 5);
+
+  fixture.manager.setNewTerminalDelaySeconds(0);
+  assert.equal(fixture.manager.getNewTerminalDelaySeconds(), undefined);
+});
+
+test('updateAction and deleteAction refresh sections from remaining actions', t => {
+  const fixture = createFixture({
+    sections: ['build', 'test'],
+    actions: [
+      createAction('a', 'build', 'Compile'),
+      createAction('b', 'test', 'Verify'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fixture.manager.updateAction({
+    id: 'a',
+    section: 'deploy',
+    name: 'Release',
+    command: 'npm publish',
+  });
+
+  assert.deepEqual(fixture.manager.getSections(), ['test', 'deploy']);
+
+  fixture.manager.deleteAction('b');
+  assert.deepEqual(fixture.manager.getSections(), ['deploy']);
+  assert.deepEqual(fixture.manager.getActions().map(action => action.id), ['a']);
+});
+
+test('deleteSection removes the section and all belonging actions', t => {
+  const fixture = createFixture({
+    sections: ['build', 'test'],
+    actions: [
+      createAction('a', 'build', 'Compile'),
+      createAction('b', 'build', 'Lint'),
+      createAction('c', 'test', 'Verify'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.deleteSection('build'), true);
+  assert.equal(fixture.manager.deleteSection('missing'), false);
+  assert.deepEqual(fixture.manager.getSections(), ['test']);
+  assert.deepEqual(fixture.manager.getActions().map(action => action.id), ['c']);
+});
+
+test('moveSection and moveSectionBefore reorder only valid sections', t => {
+  const fixture = createFixture({
+    sections: ['a', 'b', 'c'],
+    actions: [
+      createAction('a1', 'a', 'A'),
+      createAction('b1', 'b', 'B'),
+      createAction('c1', 'c', 'C'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.moveSection('b', 'up'), true);
+  assert.equal(fixture.manager.moveSection('b', 'up'), false);
+  assert.equal(fixture.manager.moveSectionBefore('c', 'a'), true);
+  assert.equal(fixture.manager.moveSectionBefore('c', 'c'), false);
+  assert.deepEqual(fixture.manager.getSections(), ['b', 'c', 'a']);
+});
+
+test('moveActionInSection only swaps within the same section', t => {
+  const fixture = createFixture({
+    sections: ['build', 'test'],
+    actions: [
+      createAction('a', 'build', 'Compile'),
+      createAction('b', 'build', 'Lint'),
+      createAction('c', 'test', 'Verify'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.moveActionInSection('b', 'up'), true);
+  assert.equal(fixture.manager.moveActionInSection('b', 'up'), false);
+  assert.equal(fixture.manager.moveActionInSection('c', 'up'), false);
+  assert.deepEqual(
+    fixture.manager.getActions().map(action => `${action.section}:${action.id}`),
+    ['build:b', 'build:a', 'test:c']
+  );
+});
+
+test('moveActionBeforeInSection and moveActionToSectionEnd move actions across sections', t => {
+  const fixture = createFixture({
+    sections: ['build', 'test'],
+    actions: [
+      createAction('a', 'build', 'Compile'),
+      createAction('b', 'build', 'Lint'),
+      createAction('c', 'test', 'Verify'),
+      createAction('d', 'test', 'Smoke'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.moveActionBeforeInSection('a', 'c'), true);
+  assert.deepEqual(
+    fixture.manager.getActions().map(action => `${action.section}:${action.id}`),
+    ['build:b', 'test:a', 'test:c', 'test:d']
+  );
+
+  assert.equal(fixture.manager.moveActionToSectionEnd('b', 'test'), true);
+  assert.equal(fixture.manager.moveActionToSectionEnd('missing', 'test'), false);
+  assert.equal(fixture.manager.moveActionToSectionEnd('a', 'deploy'), false);
+  assert.deepEqual(
+    fixture.manager.getActions().map(action => `${action.section}:${action.id}`),
+    ['test:a', 'test:c', 'test:d', 'test:b']
+  );
+});
+
+test('duplicateAction and duplicateSection insert renamed copies next to the source', t => {
+  const fixture = createFixture({
+    sections: ['common', 'common (2)', 'other'],
+    actions: [
+      createAction('a', 'common', 'Build'),
+      createAction('b', 'common', 'Build (2)'),
+      createAction('x', 'common (2)', 'Build Copy'),
+      createAction('c', 'other', 'Test'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  const duplicatedAction = fixture.manager.duplicateAction('b');
+  const duplicatedSection = fixture.manager.duplicateSection('common');
+
+  assert.ok(duplicatedAction);
+  assert.equal(duplicatedAction?.name, 'Build (3)');
+  assert.equal(duplicatedSection, 'common (3)');
+  assert.deepEqual(fixture.manager.getSections(), ['common', 'common (3)', 'common (2)', 'other']);
+
+  const actions = fixture.manager.getActions();
+  assert.equal(actions.filter(action => action.section === 'common (3)').length, 3);
+  assert.equal(actions[2].name, 'Build (3)');
+});
+
+test('renameSection validates the target name and updates belonging actions', t => {
+  const fixture = createFixture({
+    sections: ['build', 'test'],
+    actions: [
+      createAction('a', 'build', 'Compile'),
+      createAction('b', 'test', 'Verify'),
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.renameSection('build', ' release '), true);
+  assert.equal(fixture.manager.renameSection('missing', 'noop'), false);
+  assert.equal(fixture.manager.renameSection('test', 'release'), false);
+  assert.equal(fixture.manager.renameSection('test', 'test'), false);
+  assert.deepEqual(fixture.manager.getSections(), ['release', 'test']);
+  assert.deepEqual(
+    fixture.manager.getActions().map(action => `${action.id}:${action.section}`),
+    ['a:release', 'b:test']
+  );
+});
