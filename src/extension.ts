@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ActionsManager } from './actionsManager';
-import { ActionsProvider, ActionItem } from './actionsProvider';
+import { ActionsProvider, ActionItem, SectionItem } from './actionsProvider';
 import {
   SettingProvider,
   SettingActionItem,
@@ -16,6 +16,9 @@ import { ActionExecutionStatus } from './types';
 type TreeSubtextMode = 'command' | 'description' | 'hidden';
 const EDIT_MODE_CONTEXT_KEY = 'localTerminalActions.editMode';
 
+/**
+ * アクションツリーに適用するサブテキスト表示モードを返します。
+ */
 function getTreeSubtextMode(): TreeSubtextMode {
   const mode = vscode.workspace
     .getConfiguration('localTerminalActions')
@@ -26,6 +29,9 @@ function getTreeSubtextMode(): TreeSubtextMode {
   return 'command';
 }
 
+/**
+ * UI トグル循環における次のサブテキスト表示モードを返します。
+ */
 function getNextTreeSubtextMode(mode: TreeSubtextMode): TreeSubtextMode {
   switch (mode) {
     case 'command':
@@ -38,6 +44,9 @@ function getNextTreeSubtextMode(mode: TreeSubtextMode): TreeSubtextMode {
   }
 }
 
+/**
+ * 拡張を有効化し、各ツリービュー、コマンド、監視を登録します。
+ */
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot =
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -281,7 +290,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand(
       'localTerminalActions.renameSection',
-      async (item: SettingSectionItem) => {
+      async (item: SectionItem | SettingSectionItem) => {
         const existing = actionsManager.getSections();
         const newName = await vscode.window.showInputBox({
           title: vscode.l10n.t('Rename Section'),
@@ -311,6 +320,68 @@ export function activate(context: vscode.ExtensionContext): void {
             vscode.l10n.t('Section renamed to "{0}".', trimmed)
           );
         }
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.renameAction',
+      async (item: ActionItem | SettingActionItem) => {
+        const newName = await vscode.window.showInputBox({
+          title: vscode.l10n.t('Rename Action'),
+          prompt: vscode.l10n.t('Enter new action name'),
+          value: item.action.name,
+          validateInput: value => {
+            if (!value.trim()) {
+              return vscode.l10n.t('Action name cannot be empty.');
+            }
+            return undefined;
+          },
+        });
+        if (!newName) {
+          return;
+        }
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === item.action.name) {
+          return;
+        }
+
+        actionsManager.updateAction({
+          ...item.action,
+          name: trimmed,
+        });
+        refreshAll();
+        vscode.window.showInformationMessage(
+          vscode.l10n.t('Action renamed to "{0}".', trimmed)
+        );
+      }
+    ),
+
+    vscode.commands.registerCommand(
+      'localTerminalActions.editActionDescription',
+      async (item: ActionItem | SettingActionItem) => {
+        const nextDescription = await vscode.window.showInputBox({
+          title: vscode.l10n.t('Edit Description'),
+          prompt: vscode.l10n.t('Enter new description. Leave empty to clear.'),
+          value: item.action.description ?? '',
+        });
+        if (nextDescription === undefined) {
+          return;
+        }
+
+        const trimmed = nextDescription.trim();
+        const description = trimmed || undefined;
+        if (description === item.action.description) {
+          return;
+        }
+
+        actionsManager.updateAction({
+          ...item.action,
+          description,
+        });
+        refreshAll();
+        vscode.window.showInformationMessage(
+          vscode.l10n.t('Description updated for action "{0}".', item.action.name)
+        );
       }
     ),
 
@@ -570,6 +641,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
+/**
+ * 拡張を無効化します。
+ */
 export function deactivate(): void {
   // Nothing to clean up; VS Code disposes subscriptions automatically.
 }

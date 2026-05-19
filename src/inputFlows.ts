@@ -7,8 +7,8 @@ import { Action, ActionVariable } from './types';
 // ---------------------------------------------------------------------------
 
 /**
- * Returns terminal profile names available in VS Code's settings,
- * with sensible defaults when none are configured.
+ * VS Code 設定から利用可能なターミナルプロファイル名を取得します。
+ * 何も設定されていない場合は妥当な既定値を返します。
  */
 export function getTerminalProfiles(): string[] {
   const config = vscode.workspace.getConfiguration(
@@ -35,7 +35,7 @@ export function getTerminalProfiles(): string[] {
 }
 
 /**
- * Builds a localized title for wizard steps.
+ * ウィザード各ステップ用のローカライズ済みタイトルを組み立てます。
  */
 function buildStepTitle(
   label: string,
@@ -47,6 +47,9 @@ function buildStepTitle(
 
 type CollectActionInfoMode = 'create' | 'edit';
 
+/**
+ * アクション入力ウィザードの挙動を制御する任意設定です。
+ */
 interface CollectActionInfoOptions {
   mode?: CollectActionInfoMode;
 }
@@ -74,7 +77,7 @@ const ACTION_WIZARD_STEP_EDIT = {
 const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * Serializes variable definitions into editable text.
+ * 変数定義を編集用テキストへシリアライズします。
  */
 function serializeVariableDefinitions(
   variables: ActionVariable[] | undefined
@@ -93,7 +96,7 @@ function serializeVariableDefinitions(
 }
 
 /**
- * Parses variable definitions from user input.
+ * ユーザー入力から変数定義を解析します。
  */
 function parseVariableDefinitions(
   rawValue: string
@@ -165,7 +168,7 @@ function parseVariableDefinitions(
 }
 
 /**
- * Validates variable definition syntax while typing.
+ * 入力中の変数定義構文を検証します。
  */
 function validateVariableDefinitions(rawValue: string): string | undefined {
   const result = parseVariableDefinitions(rawValue);
@@ -173,8 +176,7 @@ function validateVariableDefinitions(rawValue: string): string | undefined {
 }
 
 /**
- * Shows a QuickPick that allows the user to select an existing section
- * or type a new section name.
+ * 既存セクションの選択、または新規セクション名の入力を受け付ける QuickPick を表示します。
  */
 async function pickOrCreateSection(
   existingSections: string[],
@@ -259,9 +261,9 @@ async function pickOrCreateSection(
 }
 
 /**
- * Shows a single-select QuickPick with the item marked `picked: true` pre-highlighted.
- * `vscode.window.showQuickPick` ignores `picked` in single-select mode, so we use
- * the lower-level `createQuickPick()` API and set `activeItems` explicitly.
+ * picked: true が付いた項目を事前選択状態で表示する単一選択 QuickPick を表示します。
+ * vscode.window.showQuickPick は単一選択では picked を無視するため、
+ * より低レベルな createQuickPick() API を使って activeItems を明示設定します。
  */
 async function showQuickPickWithDefault(
   items: vscode.QuickPickItem[],
@@ -310,11 +312,12 @@ async function showQuickPickWithDefault(
 // ---------------------------------------------------------------------------
 
 /**
- * Runs a multi-step wizard to collect all fields for an action.
+ * アクションの各入力項目を収集する複数ステップのウィザードを実行します。
  *
- * @param actionsManager  Used to look up existing section names.
- * @param existing        Pre-fill fields when editing an existing action.
- * @returns The collected fields (without id), or undefined if cancelled.
+ * @param actionsManager 既存セクション名の参照に使用します。
+ * @param existing 既存アクション編集時の初期値として使用します。
+ * @param options ウィザードを create / edit のどちらで動かすかを制御します。
+ * @returns 収集した値を返します。キャンセル時は undefined を返します。
  */
 export async function collectActionInfo(
   actionsManager: ActionsManager,

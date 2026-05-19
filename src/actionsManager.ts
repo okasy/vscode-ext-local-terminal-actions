@@ -3,14 +3,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Action, ActionsData } from './types';
 
+/**
+ * 新しいアクション用の軽量な一意識別子を生成します。
+ */
 function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/**
+ * 読み込んだ識別子をそのまま再利用できるかどうかを返します。
+ */
 function isValidId(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/**
+ * 既存の数値サフィックス規則に従って複製時のアクション名を生成します。
+ */
 function getDuplicatedActionName(name: string): string {
   const match = name.match(/^(.*?)(?:\s*\((\d+)\))$/);
   if (!match) {
@@ -25,6 +34,9 @@ function getDuplicatedActionName(name: string): string {
   return `${base} (${current + 1})`;
 }
 
+/**
+ * 次に利用可能な複製用セクション名を生成します。
+ */
 function getDuplicatedSectionName(name: string, existingSections: string[]): string {
   const used = new Set(existingSections);
   const match = name.match(/^(.*?)(?:\s*\((\d+)\))$/);
@@ -51,6 +63,9 @@ export class ActionsManager {
   private readonly actionsFilePath: string | undefined;
   private readonly schemaSourcePath: string | undefined;
 
+  /**
+   * 現在のワークスペース向け ActionsManager を作成します。
+   */
   constructor(workspaceRoot: string | undefined, extensionPath?: string) {
     if (workspaceRoot) {
       this.actionsFilePath = path.join(workspaceRoot, '.vscode', 'actions.json');
@@ -60,10 +75,16 @@ export class ActionsManager {
     }
   }
 
+  /**
+   * この拡張が操作対象のワークスペースフォルダーを持つかどうかを返します。
+   */
   hasWorkspace(): boolean {
     return this.actionsFilePath !== undefined;
   }
 
+  /**
+   * アクション一覧から、初出順を保ったままセクション順を導出します。
+   */
   private deriveSectionsFromActions(actions: Action[]): string[] {
     const seen = new Set<string>();
     const sections: string[] = [];
@@ -76,6 +97,9 @@ export class ActionsManager {
     return sections;
   }
 
+  /**
+   * 保存済みのセクション順を現在のアクション構成に合わせて正規化します。
+   */
   private normalizeSections(
     sections: string[] | undefined,
     actions: Action[]
@@ -104,6 +128,73 @@ export class ActionsManager {
     return normalized;
   }
 
+  /**
+   * セクション配列の順序に従って actions を並び替えます。
+   * 同一セクション内の相対順序は維持し、未登録セクションは末尾へ残します。
+   */
+  private sortActionsBySectionOrder(
+    actions: Action[],
+    sections: string[] | undefined
+  ): Action[] {
+    const sectionOrder = new Map<string, number>();
+    for (const [index, section] of (sections ?? []).entries()) {
+      sectionOrder.set(section, index);
+    }
+
+    return actions
+      .map((action, index) => ({ action, index }))
+      .sort((left, right) => {
+        const leftOrder = sectionOrder.get(left.action.section);
+        const rightOrder = sectionOrder.get(right.action.section);
+
+        if (leftOrder === undefined && rightOrder === undefined) {
+          return left.index - right.index;
+        }
+        if (leftOrder === undefined) {
+          return 1;
+        }
+        if (rightOrder === undefined) {
+          return -1;
+        }
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+        return left.index - right.index;
+      })
+      .map(entry => entry.action);
+  }
+
+  /**
+   * 設定ファイル調整コマンド向けにトップレベルキー順と actions 順を正規化します。
+   */
+  private buildCanonicalInitFileData(raw: Record<string, unknown>): Record<string, unknown> {
+    const sections = Array.isArray(raw.sections)
+      ? raw.sections.filter((section): section is string => typeof section === 'string')
+      : [];
+    const actions = Array.isArray(raw.actions) ? (raw.actions as Action[]) : [];
+
+    const canonical: Record<string, unknown> = {
+      $schema:
+        typeof raw.$schema === 'string' && raw.$schema.trim().length > 0
+          ? raw.$schema
+          : './actions.schema.json',
+      sections,
+      actions: this.sortActionsBySectionOrder(actions, sections),
+    };
+
+    for (const key of Object.keys(raw)) {
+      if (key === '$schema' || key === 'sections' || key === 'actions') {
+        continue;
+      }
+      canonical[key] = raw[key];
+    }
+
+    return canonical;
+  }
+
+  /**
+   * actions.json を読み込み、不足時の既定値を補った正規化済みデータを返します。
+   */
   private getData(): ActionsData {
     if (!this.actionsFilePath || !fs.existsSync(this.actionsFilePath)) {
       return {
@@ -155,22 +246,37 @@ export class ActionsManager {
     }
   }
 
+  /**
+   * 設定済みの全アクションを返します。
+   */
   getActions(): Action[] {
     return this.getData().actions;
   }
 
+  /**
+   * ツリー表示で使用する順序付きセクション一覧を返します。
+   */
   getSections(): string[] {
     return this.getData().sections ?? [];
   }
 
+  /**
+   * 指定したセクションに属する全アクションを返します。
+   */
   getActionsBySection(section: string): Action[] {
     return this.getActions().filter(a => a.section === section);
   }
 
+  /**
+   * 新規ターミナル作成時に実行する共通事前コマンドを返します。
+   */
   getCommonOnNewTerminalCommand(): string | undefined {
     return this.getData().commonOnNewTerminalCommand;
   }
 
+  /**
+   * 新規ターミナル作成時の共通事前コマンドを保存します。
+   */
   setCommonOnNewTerminalCommand(command: string | undefined): void {
     const data = this.getData();
     data.commonOnNewTerminalCommand = command?.trim() || undefined;
@@ -178,16 +284,16 @@ export class ActionsManager {
   }
 
   /**
-   * Returns the configured delay (in seconds) to wait before running
-   * commonOnNewTerminalCommand / onNewTerminalCommand on a freshly created terminal.
+    * 新しく作成したターミナルで commonOnNewTerminalCommand / onNewTerminalCommand を
+    * 実行する前に待機する設定秒数を返します。
    */
   getNewTerminalDelaySeconds(): number | undefined {
     return this.getData().newTerminalDelaySeconds;
   }
 
   /**
-   * Persists the delay seconds setting to actions.json.
-   * Pass undefined or 0 to clear the setting.
+    * 待機秒数の設定を actions.json に保存します。
+    * undefined または 0 を渡すと設定を解除します。
    */
   setNewTerminalDelaySeconds(seconds: number | undefined): void {
     const data = this.getData();
@@ -196,6 +302,9 @@ export class ActionsManager {
     this.saveData(data);
   }
 
+  /**
+   * 正規化済みデータを actions.json に書き戻します。
+   */
   private saveData(data: ActionsData): void {
     if (!this.actionsFilePath) {
       vscode.window.showWarningMessage(
@@ -211,6 +320,9 @@ export class ActionsManager {
     });
   }
 
+  /**
+   * バンドル済みスキーマファイルをワークスペースの設定ディレクトリへコピーします。
+   */
   private copySchemaFile(dir: string): void {
     if (this.schemaSourcePath && fs.existsSync(this.schemaSourcePath)) {
       const schemaDest = path.join(dir, 'actions.schema.json');
@@ -218,6 +330,9 @@ export class ActionsManager {
     }
   }
 
+  /**
+   * スキーマ参照を含む actions データ全体を書き込みます。
+   */
   private writeDataFile(data: ActionsData): void {
     if (!this.actionsFilePath) {
       return;
@@ -234,6 +349,9 @@ export class ActionsManager {
     fs.writeFileSync(this.actionsFilePath, JSON.stringify(output, null, 2), 'utf-8');
   }
 
+  /**
+   * すべてのアクションが空でない一意 ID を持つように補正します。
+   */
   private normalizeActionIds(actions: Action[]): { actions: Action[]; changed: boolean } {
     const usedIds = new Set<string>();
     let changed = false;
@@ -257,6 +375,9 @@ export class ActionsManager {
     return { actions: normalized, changed };
   }
 
+  /**
+   * 新しいアクションを追加し、生成済み ID を含む保存後の値を返します。
+   */
   addAction(action: Omit<Action, 'id'>): Action {
     const data = this.getData();
     const usedIds = new Set(data.actions.map(a => a.id));
@@ -274,6 +395,9 @@ export class ActionsManager {
     return newAction;
   }
 
+  /**
+   * 既存アクションを更新内容で置き換えます。
+   */
   updateAction(action: Action): void {
     const data = this.getData();
     const index = data.actions.findIndex(a => a.id === action.id);
@@ -296,6 +420,9 @@ export class ActionsManager {
     }
   }
 
+  /**
+   * ID を指定してアクションを削除します。
+   */
   deleteAction(id: string): void {
     const data = this.getData();
     data.actions = data.actions.filter(a => a.id !== id);
@@ -303,7 +430,7 @@ export class ActionsManager {
   }
 
   /**
-   * Deletes a section and all actions contained in that section.
+    * セクションと、その配下に含まれる全アクションを削除します。
    */
   deleteSection(sectionName: string): boolean {
     const data = this.getData();
@@ -323,6 +450,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * セクションを 1 つ上または下へ移動します。
+   */
   moveSection(section: string, direction: 'up' | 'down'): boolean {
     const data = this.getData();
     if (data.actions.length === 0) {
@@ -353,6 +483,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * セクションを別のセクションの直前へ移動します。
+   */
   moveSectionBefore(sourceSection: string, targetSection: string): boolean {
     if (sourceSection === targetSection) {
       return false;
@@ -377,6 +510,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * 現在のセクション内でアクション順を入れ替えます。
+   */
   moveActionInSection(actionId: string, direction: 'up' | 'down'): boolean {
     const data = this.getData();
     const currentIndex = data.actions.findIndex(a => a.id === actionId);
@@ -420,6 +556,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * アクションを対象セクション内の別アクション直前へ移動します。
+   */
   moveActionBeforeInSection(sourceActionId: string, targetActionId: string): boolean {
     if (sourceActionId === targetActionId) {
       return false;
@@ -449,6 +588,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * アクションを別セクションの末尾へ移動します。
+   */
   moveActionToSectionEnd(actionId: string, targetSection: string): boolean {
     const data = this.getData();
     const source = data.actions.find(a => a.id === actionId);
@@ -480,6 +622,9 @@ export class ActionsManager {
     return true;
   }
 
+  /**
+   * アクションを複製し、元アクションの直後へ挿入します。
+   */
   duplicateAction(actionId: string): Action | undefined {
     const data = this.getData();
     const sourceIndex = data.actions.findIndex(a => a.id === actionId);
@@ -511,8 +656,8 @@ export class ActionsManager {
   }
 
   /**
-   * Duplicates a section and all actions contained in that section.
-   * The duplicated section is inserted right after the source section.
+    * セクションと配下の全アクションを複製します。
+    * 複製したセクションは元セクションの直後へ挿入されます。
    */
   duplicateSection(sectionName: string): string | undefined {
     const data = this.getData();
@@ -564,8 +709,8 @@ export class ActionsManager {
   }
 
   /**
-   * Renames a section and updates all actions that belong to it.
-   * Returns false when the name is unchanged, the target already exists, or the section is not found.
+    * セクション名を変更し、所属アクションの section もあわせて更新します。
+    * 名前未変更、変更先が既存、または対象セクション未存在のときは false を返します。
    */
   renameSection(oldName: string, newName: string): boolean {
     const trimmed = newName.trim();
@@ -596,11 +741,10 @@ export class ActionsManager {
   }
 
   /**
-   * Creates actions.json with the minimal structure if it does not exist,
-   * or adds any missing top-level keys ($schema, sections, actions) if it already exists.
+    * actions.json が存在しない場合は最小構成で作成します。
+    * 既存の場合は不足しているトップレベルキー ($schema, sections, actions) を補完します。
    *
-   * @returns 'created' when the file was newly created, 'updated' when missing keys were added,
-   *          or 'noop' when no changes were necessary.
+    * @returns 新規作成時は 'created'、不足キー補完時は 'updated'、変更不要時は 'noop' を返します。
    */
   initActionsFile(): 'created' | 'updated' | 'noop' {
     if (!this.actionsFilePath) {
@@ -621,30 +765,15 @@ export class ActionsManager {
     try {
       const content = fs.readFileSync(this.actionsFilePath, 'utf-8');
       const raw = JSON.parse(content) as Record<string, unknown>;
-      let changed = false;
+      const patched = this.buildCanonicalInitFileData({
+        ...raw,
+        sections: 'sections' in raw ? raw.sections : [],
+        actions: 'actions' in raw ? raw.actions : [],
+      });
+      const nextContent = JSON.stringify(patched, null, 2);
 
-      // $schema を先頭に保証しつつ不足キーを補完する
-      const patched: Record<string, unknown> = {};
-      patched.$schema = (raw.$schema as string | undefined) ?? './actions.schema.json';
-      if (!('$schema' in raw)) {
-        changed = true;
-      }
-      for (const key of Object.keys(raw)) {
-        if (key !== '$schema') {
-          patched[key] = raw[key];
-        }
-      }
-      if (!('sections' in raw)) {
-        patched.sections = [];
-        changed = true;
-      }
-      if (!('actions' in raw)) {
-        patched.actions = [];
-        changed = true;
-      }
-
-      if (changed) {
-        fs.writeFileSync(this.actionsFilePath, JSON.stringify(patched, null, 2), 'utf-8');
+      if (content !== nextContent) {
+        fs.writeFileSync(this.actionsFilePath, nextContent, 'utf-8');
         return 'updated';
       }
       return 'noop';

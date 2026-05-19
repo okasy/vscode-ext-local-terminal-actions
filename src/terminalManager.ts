@@ -1,17 +1,26 @@
 import * as vscode from 'vscode';
 import { Action } from './types';
 
+/**
+ * VS Code 設定から読み取るターミナルプロファイル設定の一部です。
+ */
 interface TerminalProfileConfig {
   path?: string | string[];
   args?: string[];
   source?: string;
 }
 
+/**
+ * 次に検出される一致コマンド実行へ紐づける保留情報です。
+ */
 interface PendingExecution {
   action: Action;
   expectedCommand: string;
 }
 
+/**
+ * 実行状態を拡張本体へ通知するためのコールバック群です。
+ */
 interface ExecutionTrackingCallbacks {
   onRunning?: (action: Action) => void;
   onCompleted?: (action: Action, exitCode: number | undefined) => void;
@@ -20,8 +29,8 @@ interface ExecutionTrackingCallbacks {
 }
 
 /**
- * Returns the shell executable path for a named terminal profile,
- * read from VS Code's terminal.integrated.profiles settings.
+ * VS Code の terminal.integrated.profiles 設定から、
+ * 指定したターミナルプロファイルのシェル実行パスを取得します。
  */
 function getShellForProfile(profileName: string): string | undefined {
   const config = vscode.workspace.getConfiguration('terminal.integrated.profiles');
@@ -50,13 +59,13 @@ function getShellForProfile(profileName: string): string | undefined {
 }
 
 /**
- * Manages VS Code terminal instances and runs action commands.
+ * VS Code のターミナルインスタンス管理とアクション実行を担当します。
  */
 export class TerminalManager {
-  /** Tracks reusable terminals keyed by section name */
+  /** セクション名ごとに再利用するターミナルを保持します。 */
   private readonly terminals = new Map<string, vscode.Terminal>();
 
-  /** Tracks the latest terminal used by each action */
+  /** 各アクションで最後に使用したターミナルを保持します。 */
   private readonly actionTerminals = new Map<string, vscode.Terminal>();
 
   private readonly pendingExecutions = new Map<vscode.Terminal, PendingExecution[]>();
@@ -68,6 +77,9 @@ export class TerminalManager {
 
   private readonly disposables: vscode.Disposable[] = [];
 
+  /**
+   * 任意のライフサイクルコールバック付きで TerminalManager を作成します。
+   */
   constructor(private readonly callbacks: ExecutionTrackingCallbacks = {}) {
     this.disposables.push(
       vscode.window.onDidStartTerminalShellExecution(event => {
@@ -82,12 +94,18 @@ export class TerminalManager {
     );
   }
 
+  /**
+   * マネージャーが保持するイベント購読を破棄します。
+   */
   dispose(): void {
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
   }
 
+  /**
+   * 変数を解決し、既存または新規ターミナルでアクションを実行します。
+   */
   async runAction(action: Action): Promise<void> {
     const resolvedCommand = await this.resolveCommand(action);
     if (resolvedCommand === undefined) {
@@ -132,6 +150,9 @@ export class TerminalManager {
     terminal.sendText(resolvedCommand);
   }
 
+  /**
+   * 指定アクションで最後に使ったターミナルへフォーカスします。
+   */
   focusActionTerminal(action: Action): boolean {
     const terminal = this.actionTerminals.get(action.id);
     if (!terminal || !vscode.window.terminals.includes(terminal)) {
@@ -142,6 +163,9 @@ export class TerminalManager {
     return true;
   }
 
+  /**
+   * 指定アクションで最後に使ったターミナルを閉じます。
+   */
   closeActionTerminal(action: Action): boolean {
     const terminal = this.actionTerminals.get(action.id);
     if (!terminal || !vscode.window.terminals.includes(terminal)) {
@@ -153,6 +177,9 @@ export class TerminalManager {
     return true;
   }
 
+  /**
+   * 実行前にアクションコマンド内の対話変数を解決します。
+   */
   private async resolveCommand(action: Action): Promise<string | undefined> {
     const matches = [...action.command.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g)];
     const variableNames = [...new Set(matches.map(match => match[1]))];
@@ -252,6 +279,9 @@ export class TerminalManager {
     return resolvedCommand;
   }
 
+  /**
+   * VS Code が一致するシェル実行開始イベントを返すまでアクションを待機キューへ積みます。
+   */
   private enqueuePendingExecution(
     terminal: vscode.Terminal,
     action: Action,
@@ -262,6 +292,9 @@ export class TerminalManager {
     this.pendingExecutions.set(terminal, queue);
   }
 
+  /**
+   * シェル実行開始イベントを保留中アクションへ対応付けます。
+   */
   private handleExecutionStart(event: vscode.TerminalShellExecutionStartEvent): void {
     const queue = this.pendingExecutions.get(event.terminal);
     if (!queue || queue.length === 0) {
@@ -287,6 +320,9 @@ export class TerminalManager {
     this.callbacks.onRunning?.(matched.action);
   }
 
+  /**
+   * シェル実行終了時に追跡中アクションの状態更新を完了します。
+   */
   private handleExecutionEnd(event: vscode.TerminalShellExecutionEndEvent): void {
     const action = this.trackedExecutions.get(event.execution);
     if (!action) {
@@ -295,6 +331,9 @@ export class TerminalManager {
     this.callbacks.onCompleted?.(action, event.exitCode);
   }
 
+  /**
+   * 閉じられたターミナルへの参照を取り除きます。
+   */
   private cleanupClosedTerminal(closed: vscode.Terminal): void {
     for (const [name, terminal] of this.terminals) {
       if (terminal === closed) {
@@ -311,6 +350,9 @@ export class TerminalManager {
     this.pendingExecutions.delete(closed);
   }
 
+  /**
+   * 観測したシェルコマンドがキュー済みコマンドに対応するかを返します。
+   */
   private isCommandMatch(actual: string, expected: string): boolean {
     if (actual === expected) {
       return true;
@@ -318,6 +360,9 @@ export class TerminalManager {
     return actual.includes(expected);
   }
 
+  /**
+   * 指定アクション向けにターミナルを再利用または新規作成します。
+   */
   private getOrCreateTerminal(action: Action): {
     terminal: vscode.Terminal;
     created: boolean;

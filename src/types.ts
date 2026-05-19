@@ -1,62 +1,66 @@
 /**
- * Data model for a single terminal action.
+ * 1 件のターミナルアクションで使用する変数定義です。
  */
 export interface ActionVariable {
-  /** Variable name used in command placeholders, e.g. ${target} */
+  /** コマンド内のプレースホルダーで参照する変数名です。例: ${target} */
   name: string;
-  /** Select options. When omitted or empty, free text input is used. */
+  /** 選択肢の一覧です。未指定または空の場合は自由入力を受け付けます。 */
   options?: string[];
 }
 
+/**
+ * actions.json に保存される実行可能なターミナルアクションです。
+ */
 export interface Action {
-  /** Unique identifier (auto-generated) */
+  /** 一意な識別子です。自動生成されます。 */
   id: string;
-  /** Section/group name shown as a collapsible tree branch */
+  /** ツリー上で折りたたみ可能なグループとして表示するセクション名です。 */
   section: string;
-  /** Display name of the action */
+  /** アクションの表示名です。 */
   name: string;
-  /** Shell command to execute (e.g. "docker compose up -d") */
+  /** 実行するシェルコマンドです。例: "docker compose up -d" */
   command: string;
-  /** Command to run once right after creating a new terminal, before the main action command */
+  /** 新しいターミナル作成直後に 1 回だけ実行する事前コマンドです。 */
   onNewTerminalCommand?: string;
-  /** Terminal profile name (e.g. "bash", "zsh", "PowerShell") */
+  /** 使用するターミナルプロファイル名です。例: "bash", "zsh", "PowerShell" */
   terminalProfile?: string;
   /**
-   * Whether to reuse an existing terminal for this section.
-   * Defaults to true when undefined.
+   * このセクションで既存ターミナルを再利用するかどうかです。
+   * 未指定時は true として扱われます。
    */
   reuseTerminal?: boolean;
   /**
-   * Working directory for the command.
-   * Supports ${workspaceFolder} substitution.
+   * コマンド実行時の作業ディレクトリです。
+   * ${workspaceFolder} の置換に対応します。
    */
   cwd?: string;
-  /** Optional human-readable description */
+  /** 任意の説明文です。 */
   description?: string;
-  /** Optional variable definitions used by command placeholders */
+  /** コマンド内プレースホルダーで使用する任意の変数定義です。 */
   variables?: ActionVariable[];
-  /** Whether confirmation is required before running this action */
+  /** 実行前に確認ダイアログを表示するかどうかです。 */
   confirmBeforeRun?: boolean;
 }
 
 /**
- * Runtime status for action execution shown in the Actions tree.
+ * Actions ツリーに表示するアクション実行状態です。
  */
 export type ActionExecutionStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
 
 /**
- * Root structure of .vscode/actions.json
+ * .vscode/actions.json のルート構造です。
  */
 export interface ActionsData {
-  /** Explicit section order used by the tree view */
+  /** ツリー表示で使用する明示的なセクション順です。 */
   sections?: string[];
-  /** Command to run once after creating a new terminal, before action commands */
+  /** 新しいターミナル作成直後に 1 回だけ実行する共通事前コマンドです。 */
   commonOnNewTerminalCommand?: string;
   /**
-   * Seconds to wait after a new terminal is created, before running
-   * commonOnNewTerminalCommand / onNewTerminalCommand.
-   * Useful when the editor automatically loads source files on terminal open.
+   * 新しいターミナル作成後、commonOnNewTerminalCommand / onNewTerminalCommand を
+   * 実行するまで待機する秒数です。
+   * ターミナル起動時にエディタが自動で source を読み込む環境で有効です。
    */
   newTerminalDelaySeconds?: number;
+  /** ツリー表示に出すアクション一覧です。 */
   actions: Action[];
 }

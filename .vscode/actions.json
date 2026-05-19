@@ -1,5 +1,75 @@
 {
   "$schema": "./actions.schema.json",
-  "sections": [],
-  "actions": []
+  "sections": [
+    "セットアップ",
+    "テスト",
+    "ビルド",
+    "実行",
+    "デバッグ"
+  ],
+  "actions": [
+    {
+      "id": "setup-install-dependencies",
+      "section": "セットアップ",
+      "name": "依存関係をインストール",
+      "command": "npm install",
+      "cwd": "${workspaceFolder}",
+      "description": "開発開始前に依存関係をインストールします",
+      "confirmBeforeRun": true,
+      "reuseTerminal": false
+    },
+    {
+      "id": "test-smoke-compile",
+      "section": "テスト",
+      "name": "簡易テスト (compile)",
+      "command": "npm run compile",
+      "cwd": "${workspaceFolder}",
+      "description": "専用の test スクリプトが未定義のため、まずは compile を簡易テストとして実行します"
+    },
+    {
+      "id": "build-compile",
+      "section": "ビルド",
+      "name": "Compile",
+      "command": "npm run compile",
+      "cwd": "${workspaceFolder}",
+      "description": "TypeScript をコンパイルします"
+    },
+    {
+      "id": "build-watch",
+      "section": "ビルド",
+      "name": "Watch Compile",
+      "command": "npm run watch",
+      "cwd": "${workspaceFolder}",
+      "description": "TypeScript の変更を監視して自動コンパイルします",
+      "reuseTerminal": false
+    },
+    {
+      "id": "run-extension-host",
+      "section": "実行",
+      "name": "Run Extension Host",
+      "command": "npm run compile && code --new-window --extensionDevelopmentPath .",
+      "cwd": "${workspaceFolder}",
+      "description": "ビルド後に Extension Development Host を新しいウィンドウで起動します",
+      "reuseTerminal": false
+    },
+    {
+      "id": "debug-extension-host",
+      "section": "デバッグ",
+      "name": "Debug Extension Host",
+      "command": "npm run compile && code --new-window --inspect-extensions=${inspectPort} --extensionDevelopmentPath .",
+      "cwd": "${workspaceFolder}",
+      "description": "ビルド後に inspect ポート付きで Extension Development Host を起動します",
+      "variables": [
+        {
+          "name": "inspectPort",
+          "options": [
+            "9229",
+            "9333",
+            "*"
+          ]
+        }
+      ],
+      "reuseTerminal": false
+    }
+  ]
 }

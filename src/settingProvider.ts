@@ -4,6 +4,9 @@ import { Action } from './types';
 
 type TreeSubtextMode = 'command' | 'description' | 'hidden';
 
+/**
+ * ツリー項目に適用するサブテキスト表示モードを返します。
+ */
 function getTreeSubtextMode(): TreeSubtextMode {
   const mode = vscode.workspace
     .getConfiguration('localTerminalActions')
@@ -14,6 +17,9 @@ function getTreeSubtextMode(): TreeSubtextMode {
   return 'command';
 }
 
+/**
+ * サブテキスト表示モードのローカライズ済みラベルを返します。
+ */
 function getSubtextModeLabel(mode: TreeSubtextMode): string {
   switch (mode) {
     case 'description':
@@ -30,6 +36,9 @@ function getSubtextModeLabel(mode: TreeSubtextMode): string {
 // Tree item classes
 // ---------------------------------------------------------------------------
 
+/**
+ * 設定ツリー内のアクションに表示するサブテキストを決定します。
+ */
 function getSubtextForAction(action: Action): string | undefined {
   const mode = vscode.workspace
     .getConfiguration('localTerminalActions')
@@ -45,7 +54,13 @@ function getSubtextForAction(action: Action): string | undefined {
   }
 }
 
+/**
+ * edit-actions ビュー内のセクションを表すツリー項目です。
+ */
 export class SettingSectionItem extends vscode.TreeItem {
+  /**
+   * メニュー制御用の位置情報を持つセクションノードを作成します。
+   */
   constructor(
     public readonly sectionName: string,
     position: 'single' | 'top' | 'middle' | 'bottom'
@@ -56,7 +71,13 @@ export class SettingSectionItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * サブテキスト表示モード選択を開くツリー項目です。
+ */
 export class SubtextModeSelectorItem extends vscode.TreeItem {
+  /**
+   * 表示設定用の選択項目を作成します。
+   */
   constructor() {
     const mode = getTreeSubtextMode();
     super(
@@ -76,7 +97,13 @@ export class SubtextModeSelectorItem extends vscode.TreeItem {
 
 type GeneralSettingCategory = 'display' | 'behavior' | 'file';
 
+/**
+ * 一般設定をカテゴリ単位でまとめるツリー項目です。
+ */
 export class GeneralSettingCategoryItem extends vscode.TreeItem {
+  /**
+   * 一般設定ツリー内のカテゴリノードを作成します。
+   */
   constructor(public readonly category: GeneralSettingCategory) {
     super(getGeneralSettingCategoryLabel(category), vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = `generalCategory:${category}`;
@@ -84,7 +111,13 @@ export class GeneralSettingCategoryItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * 新規ターミナルの事前コマンド遅延秒数を編集するツリー項目です。
+ */
 export class NewTerminalDelaySecondsItem extends vscode.TreeItem {
+  /**
+   * 新規ターミナル遅延設定の項目を作成します。
+   */
   constructor(value: number | undefined) {
     super(
       vscode.l10n.t('New terminal delay seconds'),
@@ -105,7 +138,13 @@ export class NewTerminalDelaySecondsItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * 新規ターミナル共通事前コマンドを編集するツリー項目です。
+ */
 export class CommonOnNewTerminalCommandItem extends vscode.TreeItem {
+  /**
+   * 共通事前コマンド設定の項目を作成します。
+   */
   constructor(value: string | undefined) {
     super(
       vscode.l10n.t('Common new terminal pre-command'),
@@ -125,7 +164,13 @@ export class CommonOnNewTerminalCommandItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * actions.json の作成または不足項目補完を行うツリー項目です。
+ */
 export class InitActionsFileItem extends vscode.TreeItem {
+  /**
+   * 設定ファイル初期化用のツリー項目を作成します。
+   */
   constructor() {
     super(
       vscode.l10n.t('Create / adjust settings file'),
@@ -143,7 +188,13 @@ export class InitActionsFileItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * actions.json をエディタで開くツリー項目です。
+ */
 export class OpenActionsFileItem extends vscode.TreeItem {
+  /**
+   * 設定ファイルを開くツリー項目を作成します。
+   */
   constructor() {
     super(
       vscode.l10n.t('Open actions.json'),
@@ -159,7 +210,13 @@ export class OpenActionsFileItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * 編集可能な単一アクションを表すツリー項目です。
+ */
 export class SettingActionItem extends vscode.TreeItem {
+  /**
+   * 設定ツリー用のアクションノードを作成します。
+   */
   constructor(
     public readonly action: Action,
     position: 'single' | 'top' | 'middle' | 'bottom'
@@ -182,6 +239,9 @@ export class SettingActionItem extends vscode.TreeItem {
 // Provider
 // ---------------------------------------------------------------------------
 
+/**
+ * 一般設定ビューと edit-actions ビューを提供します。
+ */
 export class SettingProvider
   implements
     vscode.TreeDataProvider<
@@ -209,11 +269,17 @@ export class SettingProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  /**
+   * 一般設定ツリーまたは edit-actions ツリー用のプロバイダーを作成します。
+   */
   constructor(
     private readonly actionsManager: ActionsManager,
     private readonly viewKind: 'general' | 'editActions'
   ) {}
 
+  /**
+   * セクションやアクションのドラッグ情報をシリアライズします。
+   */
   async handleDrag(
     source: readonly (
       | InitActionsFileItem
@@ -250,6 +316,9 @@ export class SettingProvider
     }
   }
 
+  /**
+   * セクションとアクションのドラッグアンドドロップ並び替えを適用します。
+   */
   async handleDrop(
     target:
       | InitActionsFileItem
@@ -302,16 +371,25 @@ export class SettingProvider
     }
   }
 
+  /**
+   * 対象ツリー表示を更新します。
+   */
   refresh(): void {
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * 指定要素に対応するツリー項目を返します。
+   */
   getTreeItem(
     element: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem
   ): vscode.TreeItem {
     return element;
   }
 
+  /**
+   * 現在の設定ビューに応じてカテゴリ、セクション、アクションの子要素を返します。
+   */
   getChildren(
     element?: GeneralSettingCategoryItem | SubtextModeSelectorItem | InitActionsFileItem | OpenActionsFileItem | SettingSectionItem | SettingActionItem | CommonOnNewTerminalCommandItem | NewTerminalDelaySecondsItem
   ): vscode.ProviderResult<
@@ -381,6 +459,9 @@ export class SettingProvider
   }
 }
 
+/**
+ * 一般設定カテゴリのローカライズ済みラベルを返します。
+ */
 function getGeneralSettingCategoryLabel(category: GeneralSettingCategory): string {
   switch (category) {
     case 'display':
@@ -393,6 +474,9 @@ function getGeneralSettingCategoryLabel(category: GeneralSettingCategory): strin
   }
 }
 
+/**
+ * 一般設定カテゴリで使用する codicon 名を返します。
+ */
 function getGeneralSettingCategoryIcon(category: GeneralSettingCategory): string {
   switch (category) {
     case 'display':
@@ -409,6 +493,9 @@ function getGeneralSettingCategoryIcon(category: GeneralSettingCategory): string
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * 編集用アクション項目に表示するホバーツールチップを組み立てます。
+ */
 function buildTooltip(action: Action): vscode.MarkdownString {
   const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
   if (action.onNewTerminalCommand) {

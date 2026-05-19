@@ -6,6 +6,9 @@ import { Action, ActionExecutionStatus } from './types';
 // Tree item classes
 // ---------------------------------------------------------------------------
 
+/**
+ * 現在の設定に基づいてアクション項目のサブテキストを決定します。
+ */
 function getSubtextForAction(action: Action): string | undefined {
   const mode = vscode.workspace
     .getConfiguration('localTerminalActions')
@@ -21,7 +24,13 @@ function getSubtextForAction(action: Action): string | undefined {
   }
 }
 
+/**
+ * セクション単位でアクションをまとめるツリー項目です。
+ */
 export class SectionItem extends vscode.TreeItem {
+  /**
+   * Actions ツリー用のセクションノードを作成します。
+   */
   constructor(public readonly sectionName: string) {
     super(sectionName, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'section';
@@ -29,7 +38,13 @@ export class SectionItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * 単一のアクションを表すツリー項目です。
+ */
 export class ActionItem extends vscode.TreeItem {
+  /**
+   * 現在の実行状態に応じた UI を持つアクションノードを作成します。
+   */
   constructor(
     public readonly action: Action,
     status: ActionExecutionStatus
@@ -55,6 +70,9 @@ export class ActionItem extends vscode.TreeItem {
 // Provider
 // ---------------------------------------------------------------------------
 
+/**
+ * メインの Actions ツリーを提供し、アクションごとの実行状態を保持します。
+ */
 export class ActionsProvider
   implements vscode.TreeDataProvider<SectionItem | ActionItem>
 {
@@ -65,12 +83,21 @@ export class ActionsProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  /**
+   * actionsManager を参照するプロバイダーを作成します。
+   */
   constructor(private readonly actionsManager: ActionsManager) {}
 
+  /**
+   * ツリー表示を更新します。
+   */
   refresh(): void {
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+    * アクションに表示する実行状態を更新します。
+   */
   setActionStatus(actionId: string, status: ActionExecutionStatus): void {
     if (status === 'idle') {
       this.actionStatuses.delete(actionId);
@@ -80,15 +107,24 @@ export class ActionsProvider
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+    * アクションに紐づく実行状態をクリアします。
+   */
   clearActionStatus(actionId: string): void {
     this.actionStatuses.delete(actionId);
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+    * 指定した要素に対応するツリー項目を返します。
+   */
   getTreeItem(element: SectionItem | ActionItem): vscode.TreeItem {
     return element;
   }
 
+  /**
+    * ルートではセクション、各セクション配下ではアクション項目を返します。
+   */
   getChildren(
     element?: SectionItem | ActionItem
   ): vscode.ProviderResult<(SectionItem | ActionItem)[]> {
@@ -111,6 +147,9 @@ export class ActionsProvider
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * ツリー上のアクションに表示するホバーツールチップを組み立てます。
+ */
 function buildTooltip(action: Action, status: ActionExecutionStatus): vscode.MarkdownString {
   const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
   lines.push('', vscode.l10n.t('Status: {0}', getStatusLabel(status)));
@@ -139,6 +178,9 @@ function buildTooltip(action: Action, status: ActionExecutionStatus): vscode.Mar
   return new vscode.MarkdownString(lines.join('\n'));
 }
 
+/**
+ * 実行状態に対応するテーマアイコンを返します。
+ */
 function getIconForStatus(status: ActionExecutionStatus): vscode.ThemeIcon {
   switch (status) {
     case 'running':
@@ -155,6 +197,9 @@ function getIconForStatus(status: ActionExecutionStatus): vscode.ThemeIcon {
   }
 }
 
+/**
+ * 実行状態に対応するローカライズ済みラベルを返します。
+ */
 function getStatusLabel(status: ActionExecutionStatus): string {
   switch (status) {
     case 'running':
@@ -171,6 +216,9 @@ function getStatusLabel(status: ActionExecutionStatus): string {
   }
 }
 
+/**
+ * メニューやインラインアクションで使う context key を計算します。
+ */
 function getContextValue(action: Action, status: ActionExecutionStatus): string {
   if (action.confirmBeforeRun) {
     return status === 'idle' ? 'action:confirm' : 'action:confirm:executed';

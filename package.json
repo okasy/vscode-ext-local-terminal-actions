@@ -154,6 +154,16 @@
         "icon": "$(edit)"
       },
       {
+        "command": "localTerminalActions.renameAction",
+        "title": "%commands.renameAction.title%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "localTerminalActions.editActionDescription",
+        "title": "%commands.editActionDescription.title%",
+        "icon": "$(symbol-text)"
+      },
+      {
         "command": "localTerminalActions.openActionsFile",
         "title": "%commands.openActionsFile.title%",
         "icon": "$(go-to-file)"
@@ -304,6 +314,26 @@
           "group": "inline"
         },
         {
+          "command": "localTerminalActions.renameAction",
+          "when": "view == localTerminalActions.actions && (viewItem == action || viewItem == action:executed || viewItem == action:confirm || viewItem == action:confirm:executed)",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.editActionDescription",
+          "when": "view == localTerminalActions.actions && (viewItem == action || viewItem == action:executed || viewItem == action:confirm || viewItem == action:confirm:executed)",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.renameSection",
+          "when": "view == localTerminalActions.actions && viewItem == section",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.selectTreeSubtextMode",
+          "when": "view == localTerminalActions.settingGeneral && viewItem == subtextModeSelector",
+          "group": "1_manage"
+        },
+        {
           "command": "localTerminalActions.runAction",
           "when": "view == localTerminalActions.actions && (viewItem == action || viewItem == action:executed)",
           "group": "1_action"
@@ -334,6 +364,16 @@
           "group": "1_manage"
         },
         {
+          "command": "localTerminalActions.renameAction",
+          "when": "view == localTerminalActions.settingEditActions && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.editActionDescription",
+          "when": "view == localTerminalActions.settingEditActions && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
+          "group": "1_manage"
+        },
+        {
           "command": "localTerminalActions.deleteAction",
           "when": "view == localTerminalActions.settingEditActions && (viewItem == action:single || viewItem == action:top || viewItem == action:middle || viewItem == action:bottom)",
           "group": "1_manage"
@@ -357,6 +397,21 @@
           "command": "localTerminalActions.editCommonOnNewTerminalCommand",
           "when": "view == localTerminalActions.settingGeneral && viewItem == commonOnNewTerminalCommand",
           "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.editNewTerminalDelaySeconds",
+          "when": "view == localTerminalActions.settingGeneral && viewItem == newTerminalDelaySeconds",
+          "group": "1_manage"
+        },
+        {
+          "command": "localTerminalActions.initActionsFile",
+          "when": "view == localTerminalActions.settingGeneral && viewItem == initActionsFile",
+          "group": "1_file"
+        },
+        {
+          "command": "localTerminalActions.openActionsFile",
+          "when": "view == localTerminalActions.settingGeneral && viewItem == openActionsFile",
+          "group": "1_file"
         }
       ]
     }

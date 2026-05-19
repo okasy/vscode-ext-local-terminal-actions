@@ -23,6 +23,8 @@
   "commands.duplicateSection.title": "Duplicate Section",
   "commands.deleteSection.title": "Delete Section",
   "commands.renameSection.title": "Rename Section",
+  "commands.renameAction.title": "Rename Action",
+  "commands.editActionDescription.title": "Edit Description",
   "commands.openActionsFile.title": "Open actions.json",
   "commands.editCommonOnNewTerminalCommand.title": "Edit Common New Terminal Pre-Command",
   "commands.editNewTerminalDelaySeconds.title": "Edit New Terminal Delay Seconds",
