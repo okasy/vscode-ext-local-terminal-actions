@@ -17,7 +17,9 @@
     "Testing",
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "*"
+  ],
   "l10n": "./l10n",
   "main": "./out/extension.js",
   "contributes": {
@@ -417,6 +419,7 @@
     }
   },
   "scripts": {
+    "setup:hooks": "git config core.hooksPath .githooks",
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
@@ -424,8 +427,8 @@
     "test": "npm run compile && node --test out/test/*.test.js"
   },
   "devDependencies": {
+    "@types/node": "^18.19.130",
     "@types/vscode": "^1.96.0",
-    "@types/node": "^18.0.0",
     "typescript": "^5.0.0"
   }
 }

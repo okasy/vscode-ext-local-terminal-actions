@@ -8,6 +8,9 @@ export interface ActionVariable {
   options?: string[];
 }
 
+/** アクションに保存するコマンド一覧です。 */
+export type ActionCommand = string[];
+
 /**
  * actions.json に保存される実行可能なターミナルアクションです。
  */
@@ -18,8 +21,8 @@ export interface Action {
   section: string;
   /** アクションの表示名です。 */
   name: string;
-  /** 実行するシェルコマンドです。例: "docker compose up -d" */
-  command: string;
+  /** 実行するシェルコマンド一覧です。通常 UI は先頭要素を表示します。 */
+  commands: ActionCommand;
   /** 新しいターミナル作成直後に 1 回だけ実行する事前コマンドです。 */
   onNewTerminalCommand?: string;
   /** 使用するターミナルプロファイル名です。例: "bash", "zsh", "PowerShell" */
@@ -63,4 +66,18 @@ export interface ActionsData {
   newTerminalDelaySeconds?: number;
   /** ツリー表示に出すアクション一覧です。 */
   actions: Action[];
+}
+
+/**
+ * 現在の UI / 実行系で利用する先頭コマンドを返します。
+ */
+export function getPrimaryCommand(action: Pick<Action, 'commands'>): string {
+  return action.commands[0] ?? '';
+}
+
+/**
+ * 実行対象として扱うコマンド一覧を返します。
+ */
+export function getCommands(action: Pick<Action, 'commands'>): string[] {
+  return action.commands;
 }

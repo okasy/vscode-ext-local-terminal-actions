@@ -162,7 +162,7 @@ function createAction(id: string, section: string, name: string, command = 'echo
     id,
     section,
     name,
-    command,
+    commands: [command],
   };
 }
 
@@ -208,6 +208,21 @@ test('initActionsFile patches missing root keys and canonicalizes action order',
   ]);
 });
 
+test('initActionsFile recreates schema when adjusting an existing actions.json', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [createAction('a', 'build', 'Compile')],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fs.rmSync(fixture.schemaDestPath, { force: true });
+
+  assert.equal(fixture.manager.initActionsFile(), 'updated');
+  assert.equal(fs.existsSync(fixture.schemaDestPath), true);
+});
+
 test('getters normalize ids, sections, and optional settings when reading', t => {
   const fixture = createFixture({
     sections: ['beta', '', 'beta', 'unused'],
@@ -229,6 +244,7 @@ test('getters normalize ids, sections, and optional settings when reading', t =>
   assert.equal(actions.length, 3);
   assert.equal(new Set(ids).size, 3);
   assert.equal(ids.every(id => id.trim().length > 0), true);
+  assert.equal(actions.every(action => Array.isArray(action.commands)), true);
   assert.deepEqual(fixture.manager.getSections(), ['beta', 'alpha']);
   assert.equal(fixture.manager.getCommonOnNewTerminalCommand(), 'npm install');
   assert.equal(fixture.manager.getNewTerminalDelaySeconds(), undefined);
@@ -236,6 +252,414 @@ test('getters normalize ids, sections, and optional settings when reading', t =>
 
   const saved = fixture.readData();
   assert.equal(new Set((saved.actions as Action[]).map(action => action.id)).size, 3);
+});
+
+test('normalizePersistedData migrates legacy command key and string value to commands on startup', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [
+      {
+        id: 'a',
+        section: 'build',
+        name: 'Compile',
+        command: '  npm run compile  ',
+      },
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fixture.manager.normalizePersistedData();
+
+  const saved = fixture.readData();
+  assert.equal('command' in (saved.actions as Array<Record<string, unknown>>)[0], false);
+  assert.deepEqual((saved.actions as Array<{ commands: string[] }>)[0].commands, [
+    'npm run compile',
+  ]);
+});
+
+test('normalizePersistedData migrates legacy command arrays to commands on startup', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [
+      {
+        id: 'a',
+        section: 'build',
+        name: 'Compile',
+        command: ['npm run lint', 'npm run compile'],
+      },
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fixture.manager.normalizePersistedData();
+
+  const saved = fixture.readData();
+  assert.equal('command' in (saved.actions as Array<Record<string, unknown>>)[0], false);
+  assert.deepEqual((saved.actions as Array<{ commands: string[] }>)[0].commands, [
+    'npm run lint',
+    'npm run compile',
+  ]);
+});
+
+test('normalizePersistedData refreshes the bundled schema even when actions data is unchanged', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [createAction('a', 'build', 'Compile')],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fs.writeFileSync(
+    fixture.schemaDestPath,
+    JSON.stringify({ type: 'object', additionalProperties: false }, null, 2),
+    'utf-8'
+  );
+
+  fixture.manager.normalizePersistedData();
+
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(fixture.schemaDestPath, 'utf-8')),
+    { type: 'object', additionalProperties: true }
+  );
+});
+
+test('normalizePersistedData does not recreate schema when it was manually removed', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [
+      {
+        id: 'a',
+        section: 'build',
+        name: 'Compile',
+        command: '  npm run compile  ',
+      },
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fs.rmSync(fixture.schemaDestPath, { force: true });
+
+  fixture.manager.normalizePersistedData();
+
+  assert.equal(fs.existsSync(fixture.schemaDestPath), false);
+  const saved = fixture.readData();
+  assert.equal('command' in (saved.actions as Array<Record<string, unknown>>)[0], false);
+  assert.deepEqual((saved.actions as Array<{ commands: string[] }>)[0].commands, [
+    'npm run compile',
+  ]);
+});
+
+test('addAction creates schema when actions.json is created for the first time', t => {
+  const fixture = createFixture();
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  const added = fixture.manager.addAction({
+    section: 'build',
+    name: 'Compile',
+    commands: ['npm run compile'],
+  });
+
+  assert.equal(added.id.trim().length > 0, true);
+  assert.equal(fs.existsSync(fixture.actionsFilePath), true);
+  assert.equal(fs.existsSync(fixture.schemaDestPath), true);
+});
+
+test('updateAction does not recreate schema when actions.json already exists without schema', t => {
+  const fixture = createFixture({
+    sections: ['build'],
+    actions: [createAction('a', 'build', 'Compile')],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  fs.rmSync(fixture.schemaDestPath, { force: true });
+
+  fixture.manager.updateAction({
+    id: 'a',
+    section: 'build',
+    name: 'Compile updated',
+    commands: ['npm run compile'],
+  });
+
+  assert.equal(fs.existsSync(fixture.schemaDestPath), false);
+  assert.equal((fixture.readData().actions as Action[])[0].name, 'Compile updated');
+});
+
+test('normal save operations preserve a manually removed schema file', async t => {
+  const scenarios = [
+    {
+      name: 'addAction on existing actions file',
+      initialData: {
+        sections: ['build'],
+        actions: [createAction('a', 'build', 'Compile')],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.addAction({
+          section: 'build',
+          name: 'Lint',
+          commands: ['npm run lint'],
+        });
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.equal((fixture.readData().actions as Action[]).length, 2);
+      },
+    },
+    {
+      name: 'setCommonOnNewTerminalCommand',
+      initialData: {
+        sections: ['build'],
+        actions: [createAction('a', 'build', 'Compile')],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.setCommonOnNewTerminalCommand('  echo setup  ');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.equal(fixture.readData().commonOnNewTerminalCommand, 'echo setup');
+      },
+    },
+    {
+      name: 'setNewTerminalDelaySeconds',
+      initialData: {
+        sections: ['build'],
+        actions: [createAction('a', 'build', 'Compile')],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.setNewTerminalDelaySeconds(3);
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.equal(fixture.readData().newTerminalDelaySeconds, 3);
+      },
+    },
+    {
+      name: 'deleteAction',
+      initialData: {
+        sections: ['build'],
+        actions: [createAction('a', 'build', 'Compile')],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.deleteAction('a');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(fixture.readData().actions, []);
+      },
+    },
+    {
+      name: 'renameSection',
+      initialData: {
+        sections: ['build'],
+        actions: [createAction('a', 'build', 'Compile')],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.renameSection('build', 'release');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        const data = fixture.readData();
+        assert.deepEqual(data.sections, ['release']);
+        assert.equal((data.actions as Action[])[0].section, 'release');
+      },
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, () => {
+      const fixture = createFixture(scenario.initialData);
+      t.after(() => {
+        fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+      });
+
+      fs.rmSync(fixture.schemaDestPath, { force: true });
+
+      scenario.mutate(fixture);
+
+      assert.equal(fs.existsSync(fixture.schemaDestPath), false);
+      scenario.assertData(fixture);
+    });
+  }
+});
+
+test('reorder and duplicate operations preserve a manually removed schema file', async t => {
+  const scenarios = [
+    {
+      name: 'deleteSection',
+      initialData: {
+        sections: ['build', 'test'],
+        actions: [
+          createAction('a', 'build', 'Compile'),
+          createAction('b', 'build', 'Lint'),
+          createAction('c', 'test', 'Verify'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.deleteSection('build');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        const data = fixture.readData();
+        assert.deepEqual(data.sections, ['test']);
+        assert.deepEqual((data.actions as Action[]).map(action => action.id), ['c']);
+      },
+    },
+    {
+      name: 'moveSection',
+      initialData: {
+        sections: ['a', 'b', 'c'],
+        actions: [
+          createAction('a1', 'a', 'A'),
+          createAction('b1', 'b', 'B'),
+          createAction('c1', 'c', 'C'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.moveSection('b', 'up');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(fixture.readData().sections, ['b', 'a', 'c']);
+      },
+    },
+    {
+      name: 'moveSectionBefore',
+      initialData: {
+        sections: ['a', 'b', 'c'],
+        actions: [
+          createAction('a1', 'a', 'A'),
+          createAction('b1', 'b', 'B'),
+          createAction('c1', 'c', 'C'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.moveSectionBefore('c', 'a');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(fixture.readData().sections, ['c', 'a', 'b']);
+      },
+    },
+    {
+      name: 'moveActionInSection',
+      initialData: {
+        sections: ['build', 'test'],
+        actions: [
+          createAction('a', 'build', 'Compile'),
+          createAction('b', 'build', 'Lint'),
+          createAction('c', 'test', 'Verify'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.moveActionInSection('b', 'up');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(
+          (fixture.readData().actions as Action[]).map(action => `${action.section}:${action.id}`),
+          ['build:b', 'build:a', 'test:c']
+        );
+      },
+    },
+    {
+      name: 'moveActionBeforeInSection',
+      initialData: {
+        sections: ['build', 'test'],
+        actions: [
+          createAction('a', 'build', 'Compile'),
+          createAction('b', 'build', 'Lint'),
+          createAction('c', 'test', 'Verify'),
+          createAction('d', 'test', 'Smoke'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.moveActionBeforeInSection('a', 'c');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(
+          (fixture.readData().actions as Action[]).map(action => `${action.section}:${action.id}`),
+          ['build:b', 'test:a', 'test:c', 'test:d']
+        );
+      },
+    },
+    {
+      name: 'moveActionToSectionEnd',
+      initialData: {
+        sections: ['build', 'test'],
+        actions: [
+          createAction('a', 'build', 'Compile'),
+          createAction('b', 'build', 'Lint'),
+          createAction('c', 'test', 'Verify'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.moveActionToSectionEnd('b', 'test');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        assert.deepEqual(
+          (fixture.readData().actions as Action[]).map(action => `${action.section}:${action.id}`),
+          ['build:a', 'test:c', 'test:b']
+        );
+      },
+    },
+    {
+      name: 'duplicateAction',
+      initialData: {
+        sections: ['common'],
+        actions: [
+          createAction('a', 'common', 'Build'),
+          createAction('b', 'common', 'Build (2)'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.duplicateAction('b');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        const actions = fixture.readData().actions as Action[];
+        assert.equal(actions.length, 3);
+        assert.equal(actions[2].name, 'Build (3)');
+      },
+    },
+    {
+      name: 'duplicateSection',
+      initialData: {
+        sections: ['common', 'other'],
+        actions: [
+          createAction('a', 'common', 'Build'),
+          createAction('b', 'common', 'Lint'),
+          createAction('c', 'other', 'Test'),
+        ],
+      },
+      mutate: (fixture: LoadedFixture) => {
+        fixture.manager.duplicateSection('common');
+      },
+      assertData: (fixture: LoadedFixture) => {
+        const data = fixture.readData();
+        assert.deepEqual(data.sections, ['common', 'common (2)', 'other']);
+        assert.equal(
+          (data.actions as Action[]).filter(action => action.section === 'common (2)').length,
+          2
+        );
+      },
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, () => {
+      const fixture = createFixture(scenario.initialData);
+      t.after(() => {
+        fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+      });
+
+      fs.rmSync(fixture.schemaDestPath, { force: true });
+
+      scenario.mutate(fixture);
+
+      assert.equal(fs.existsSync(fixture.schemaDestPath), false);
+      scenario.assertData(fixture);
+    });
+  }
 });
 
 test('addAction and setting updates persist normalized values', t => {
@@ -247,7 +671,7 @@ test('addAction and setting updates persist normalized values', t => {
   const added = fixture.manager.addAction({
     section: 'build',
     name: 'Compile',
-    command: 'npm run compile',
+    commands: ['npm run compile'],
   });
   fixture.manager.setCommonOnNewTerminalCommand('  echo setup  ');
   fixture.manager.setNewTerminalDelaySeconds(5);
@@ -277,7 +701,7 @@ test('updateAction and deleteAction refresh sections from remaining actions', t 
     id: 'a',
     section: 'deploy',
     name: 'Release',
-    command: 'npm publish',
+    commands: ['npm publish'],
   });
 
   assert.deepEqual(fixture.manager.getSections(), ['test', 'deploy']);

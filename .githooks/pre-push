@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "[pre-push] Running npm test..."
+npm test

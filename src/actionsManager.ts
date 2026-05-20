@@ -18,6 +18,58 @@ function isValidId(value: unknown): value is string {
 }
 
 /**
+ * コマンド配列を保存用に正規化します。
+ */
+function normalizeCommandList(rawCommands: unknown): { commands: string[]; changed: boolean } {
+  if (typeof rawCommands === 'string') {
+    const trimmed = rawCommands.trim();
+    return {
+      commands: trimmed ? [trimmed] : [],
+      changed: true,
+    };
+  }
+
+  if (!Array.isArray(rawCommands)) {
+    return {
+      commands: [],
+      changed: true,
+    };
+  }
+
+  const normalized = rawCommands
+    .filter((value): value is string => typeof value === 'string')
+    .map(value => value.trim())
+    .filter(Boolean);
+
+  const changed =
+    rawCommands.length !== normalized.length ||
+    rawCommands.some((value, index) => typeof value !== 'string' || value.trim() !== normalized[index]);
+
+  return { commands: normalized, changed };
+}
+
+/**
+ * 旧 command を含む入力から正規化対象のコマンド一覧を取り出します。
+ */
+function getCommandInput(action: Record<string, unknown>): {
+  rawCommands: unknown;
+  changed: boolean;
+} {
+  const hasCommands = Object.prototype.hasOwnProperty.call(action, 'commands');
+  const hasLegacyCommand = Object.prototype.hasOwnProperty.call(action, 'command');
+
+  return {
+    rawCommands: hasCommands ? action.commands : action.command,
+    changed: hasLegacyCommand || !hasCommands,
+  };
+}
+
+/**
+ * actions.json 書き込み時に schema をどう扱うかの方針です。
+ */
+type SchemaSyncMode = 'always' | 'preserve-missing';
+
+/**
  * 既存の数値サフィックス規則に従って複製時のアクション名を生成します。
  */
 function getDuplicatedActionName(name: string): string {
@@ -171,7 +223,8 @@ export class ActionsManager {
     const sections = Array.isArray(raw.sections)
       ? raw.sections.filter((section): section is string => typeof section === 'string')
       : [];
-    const actions = Array.isArray(raw.actions) ? (raw.actions as Action[]) : [];
+    const rawActions = Array.isArray(raw.actions) ? raw.actions : [];
+    const { actions } = this.normalizeActions(rawActions);
 
     const canonical: Record<string, unknown> = {
       $schema:
@@ -195,7 +248,7 @@ export class ActionsManager {
   /**
    * actions.json を読み込み、不足時の既定値を補った正規化済みデータを返します。
    */
-  private getData(): ActionsData {
+  private getData(syncSchemaFile = true): ActionsData {
     if (!this.actionsFilePath || !fs.existsSync(this.actionsFilePath)) {
       return {
         actions: [],
@@ -206,9 +259,11 @@ export class ActionsManager {
     }
     try {
       const content = fs.readFileSync(this.actionsFilePath, 'utf-8');
-      const rawData = JSON.parse(content) as Partial<ActionsData>;
+      const rawData = JSON.parse(content) as Partial<ActionsData> & {
+        actions?: unknown[];
+      };
       const rawActions = Array.isArray(rawData.actions) ? rawData.actions : [];
-      const { actions, changed } = this.normalizeActionIds(rawActions);
+      const { actions, changed } = this.normalizeActions(rawActions);
       const sections = this.normalizeSections(
         Array.isArray(rawData.sections) ? rawData.sections : undefined,
         actions
@@ -230,7 +285,7 @@ export class ActionsManager {
         newTerminalDelaySeconds,
       };
       if (changed) {
-        this.writeDataFile(normalized);
+        this.writeDataFile(normalized, syncSchemaFile ? 'always' : 'preserve-missing');
       }
       return normalized;
     } catch (err) {
@@ -258,6 +313,22 @@ export class ActionsManager {
    */
   getSections(): string[] {
     return this.getData().sections ?? [];
+  }
+
+  /**
+   * 起動時に旧形式を含む actions.json を読み込み、必要なら書き戻します。
+   */
+  normalizePersistedData(): void {
+    if (!this.actionsFilePath || !fs.existsSync(this.actionsFilePath)) {
+      return;
+    }
+
+    const schemaFilePath = path.join(path.dirname(this.actionsFilePath), 'actions.schema.json');
+    const shouldSyncSchemaFile = fs.existsSync(schemaFilePath);
+    if (shouldSyncSchemaFile) {
+      this.copySchemaFile(path.dirname(this.actionsFilePath));
+    }
+    void this.getData(shouldSyncSchemaFile);
   }
 
   /**
@@ -317,7 +388,7 @@ export class ActionsManager {
       sections: this.normalizeSections(data.sections, data.actions),
       commonOnNewTerminalCommand: data.commonOnNewTerminalCommand,
       newTerminalDelaySeconds: data.newTerminalDelaySeconds,
-    });
+    }, 'preserve-missing');
   }
 
   /**
@@ -333,17 +404,24 @@ export class ActionsManager {
   /**
    * スキーマ参照を含む actions データ全体を書き込みます。
    */
-  private writeDataFile(data: ActionsData): void {
+  private writeDataFile(data: ActionsData, schemaSyncMode: SchemaSyncMode = 'always'): void {
     if (!this.actionsFilePath) {
       return;
     }
     const dir = path.dirname(this.actionsFilePath);
+    const actionsFileExists = fs.existsSync(this.actionsFilePath);
+    const schemaFilePath = path.join(dir, 'actions.schema.json');
+    const shouldSyncSchemaFile =
+      schemaSyncMode === 'always' || !actionsFileExists || fs.existsSync(schemaFilePath);
+
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
     // スキーマファイルを .vscode/ にコピーして $schema フィールドを付与する
-    this.copySchemaFile(dir);
+    if (shouldSyncSchemaFile) {
+      this.copySchemaFile(dir);
+    }
 
     const output = { $schema: './actions.schema.json', ...data };
     fs.writeFileSync(this.actionsFilePath, JSON.stringify(output, null, 2), 'utf-8');
@@ -352,11 +430,12 @@ export class ActionsManager {
   /**
    * すべてのアクションが空でない一意 ID を持つように補正します。
    */
-  private normalizeActionIds(actions: Action[]): { actions: Action[]; changed: boolean } {
+  private normalizeActions(actions: unknown[]): { actions: Action[]; changed: boolean } {
     const usedIds = new Set<string>();
     let changed = false;
 
-    const normalized = actions.map(action => {
+    const normalized = actions.map(rawAction => {
+      const action = rawAction as Record<string, unknown> & Partial<Action>;
       let nextId = isValidId(action.id) ? action.id : '';
       if (!nextId || usedIds.has(nextId)) {
         changed = true;
@@ -366,10 +445,23 @@ export class ActionsManager {
       }
       usedIds.add(nextId);
 
-      if (nextId !== action.id) {
-        return { ...action, id: nextId };
+      const { rawCommands, changed: keyChanged } = getCommandInput(action);
+      const normalizedCommands = normalizeCommandList(rawCommands);
+      if (normalizedCommands.changed || keyChanged) {
+        changed = true;
       }
-      return action;
+
+      const {
+        command: _legacyCommand,
+        commands: _commands,
+        ...rest
+      } = action;
+
+      return {
+        ...rest,
+        id: nextId,
+        commands: normalizedCommands.commands,
+      } as Action;
     });
 
     return { actions: normalized, changed };

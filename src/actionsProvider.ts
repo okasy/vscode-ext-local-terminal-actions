@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionsManager } from './actionsManager';
-import { Action, ActionExecutionStatus } from './types';
+import { Action, ActionExecutionStatus, getPrimaryCommand } from './types';
 
 // ---------------------------------------------------------------------------
 // Tree item classes
@@ -20,7 +20,7 @@ function getSubtextForAction(action: Action): string | undefined {
       return undefined;
     case 'command':
     default:
-      return action.command;
+      return getPrimaryCommand(action);
   }
 }
 
@@ -151,7 +151,7 @@ export class ActionsProvider
  * ツリー上のアクションに表示するホバーツールチップを組み立てます。
  */
 function buildTooltip(action: Action, status: ActionExecutionStatus): vscode.MarkdownString {
-  const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
+  const lines: string[] = [`**${action.name}**`, '', `\`${getPrimaryCommand(action)}\``];
   lines.push('', vscode.l10n.t('Status: {0}', getStatusLabel(status)));
   if (action.onNewTerminalCommand) {
     lines.push(

@@ -1,8 +1,9 @@
 # Terminal Actions
 
-[![Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/okasy.local-terminal-actions?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/okasy.local-terminal-actions?label=Installs)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/okasy.local-terminal-actions?label=Rating)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
+[![Version](https://img.shields.io/github/v/tag/okasy/vscode-ext-local-terminal-actions?sort=semver&label=Version)](https://github.com/okasy/vscode-ext-local-terminal-actions/releases)
+[![Released](https://img.shields.io/github/release-date/okasy/vscode-ext-local-terminal-actions?label=Released)](https://github.com/okasy/vscode-ext-local-terminal-actions/releases)
+[![License](https://img.shields.io/github/license/okasy/vscode-ext-local-terminal-actions?label=License)](https://github.com/okasy/vscode-ext-local-terminal-actions/blob/main/LICENSE)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Visual%20Studio%20Marketplace-0078d4)](https://marketplace.visualstudio.com/items?itemName=okasy.local-terminal-actions)
 
 ターミナルで任意のコマンドをワンボタンで起動させられるようになる VS Code 拡張です。
 
@@ -53,7 +54,7 @@ Marketplace: [Visual Studio Marketplace](https://marketplace.visualstudio.com/it
 | --- | --- | --- |
 | 1 | セクション | ツリーの枝名。既存から選択または新規入力 |
 | 2 | アクション名 | 表示名（例: `Start services`） |
-| 3 | コマンド | 実行するシェルコマンド（例: `docker compose up -d`） |
+| 3 | コマンド | `commands` の先頭要素。通常 UI では先頭だけ編集し、残りは保持します |
 | 4 | 説明 | 任意のメモ |
 
 詳細編集（Edit Actions ビューから実行）:
@@ -124,7 +125,10 @@ Marketplace: [Visual Studio Marketplace](https://marketplace.visualstudio.com/it
       "id": "abc123-xyz",
       "section": "Docker",
       "name": "Start services",
-      "command": "docker compose up -d",
+      "commands": [
+        "docker compose pull",
+        "docker compose up -d"
+      ],
       "onNewTerminalCommand": "source .env.local",
       "terminalProfile": "bash",
       "reuseTerminal": true,
@@ -150,7 +154,7 @@ Marketplace: [Visual Studio Marketplace](https://marketplace.visualstudio.com/it
 | `id` | ✓ | 自動生成される一意の ID |
 | `section` | ✓ | ツリーの枝名（グループ） |
 | `name` | ✓ | アクションの表示名 |
-| `command` | ✓ | 実行するシェルコマンド |
+| `commands` | ✓ | 上から順番に実行するシェルコマンド配列。いずれかが非 0 終了すると残りは中断 |
 | `onNewTerminalCommand` | — | 新規ターミナル作成直後に 1 回だけ実行する先行コマンド（既存ターミナル再利用時は実行しない） |
 | `terminalProfile` | — | ターミナルプロファイル名 |
 | `reuseTerminal` | — | `true`: セクション単位で再利用（既定）、`false`: 毎回新規 |
@@ -159,8 +163,22 @@ Marketplace: [Visual Studio Marketplace](https://marketplace.visualstudio.com/it
 | `variables` | — | 実行時に解決する変数定義。`name` と任意の `options` を持つ |
 | `confirmBeforeRun` | — | `true` の場合、実行前に確認ダイアログを表示 |
 
+`commands` の各要素は順番に実行され、途中で非 0 終了コードが返ると残りは実行されません。失敗しても続行したいコマンドは、使用するシェルに応じて成功終了に変換してください。例: sh/bash/zsh なら `some-command || true`。
+
 ---
 
 ## ライセンス
 
 MIT
+
+---
+
+## 開発時の pre-push テスト
+
+GitHub へ push する前にローカルで `npm test` を必須にしたい場合は、次を 1 回だけ実行します。
+
+```bash
+npm run setup:hooks
+```
+
+これで Git の `pre-push` フックとして `npm test` が実行され、失敗した場合は push が中断されます。

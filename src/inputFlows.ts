@@ -1,6 +1,16 @@
 import * as vscode from 'vscode';
 import { ActionsManager } from './actionsManager';
-import { Action, ActionVariable } from './types';
+import { Action, ActionVariable, getPrimaryCommand } from './types';
+
+/**
+ * 通常 UI では先頭コマンドだけ編集し、残りのコマンドは保持します。
+ */
+function buildCommandsForInput(existing: Action | undefined, firstCommand: string): string[] {
+  if (!existing) {
+    return [firstCommand];
+  }
+  return [firstCommand, ...existing.commands.slice(1)];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -368,7 +378,7 @@ export async function collectActionInfo(
       stepConfig.command,
       totalSteps
     ),
-    value: existing?.command ?? '',
+    value: existing ? getPrimaryCommand(existing) : '',
     validateInput: v =>
       v.trim() ? undefined : vscode.l10n.t('Command is required'),
   });
@@ -394,7 +404,7 @@ export async function collectActionInfo(
     return {
       section: section.trim(),
       name: name.trim(),
-      command: command.trim(),
+      commands: buildCommandsForInput(existing, command.trim()),
       description: description.trim() || undefined,
     };
   }
@@ -569,7 +579,7 @@ export async function collectActionInfo(
   return {
     section: section.trim(),
     name: name.trim(),
-    command: command.trim(),
+    commands: buildCommandsForInput(existing, command.trim()),
     onNewTerminalCommand: onNewTerminalCommand.trim() || undefined,
     terminalProfile,
     reuseTerminal,

@@ -38,8 +38,8 @@
   "$defs": {
     "Action": {
       "type": "object",
-      "required": ["id", "section", "name", "command"],
       "description": "A single terminal action.",
+      "required": ["id", "section", "name", "commands"],
       "properties": {
         "id": {
           "type": "string",
@@ -56,10 +56,14 @@
           "description": "Display name of the action shown in the tree view.",
           "minLength": 1
         },
-        "command": {
-          "type": "string",
-          "description": "Shell command to execute (e.g. \"docker compose up -d ${variableName}\"). Supports ${variableName} placeholders when variables are defined.",
-          "minLength": 1
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Shell commands to execute in order. Execution stops when a command exits with a non-zero status. If you want to continue after an expected failure, make that command return success using syntax appropriate for the selected shell (for example, `|| true` in sh/bash/zsh). The standard UI currently edits and displays only the first entry.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "onNewTerminalCommand": {
           "type": "string",

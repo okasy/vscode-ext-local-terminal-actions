@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionsManager } from './actionsManager';
-import { Action } from './types';
+import { Action, getPrimaryCommand } from './types';
 
 type TreeSubtextMode = 'command' | 'description' | 'hidden';
 
@@ -50,7 +50,7 @@ function getSubtextForAction(action: Action): string | undefined {
       return undefined;
     case 'command':
     default:
-      return action.command;
+      return getPrimaryCommand(action);
   }
 }
 
@@ -497,7 +497,7 @@ function getGeneralSettingCategoryIcon(category: GeneralSettingCategory): string
  * 編集用アクション項目に表示するホバーツールチップを組み立てます。
  */
 function buildTooltip(action: Action): vscode.MarkdownString {
-  const lines: string[] = [`**${action.name}**`, '', `\`${action.command}\``];
+  const lines: string[] = [`**${action.name}**`, '', `\`${getPrimaryCommand(action)}\``];
   if (action.onNewTerminalCommand) {
     lines.push(
       '',

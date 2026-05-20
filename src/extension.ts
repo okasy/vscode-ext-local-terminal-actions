@@ -52,6 +52,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
   const actionsManager = new ActionsManager(workspaceRoot, context.extensionPath);
+  actionsManager.normalizePersistedData();
   const actionsProvider = new ActionsProvider(actionsManager);
   const generalSettingProvider = new SettingProvider(actionsManager, 'general');
   const editActionsSettingProvider = new SettingProvider(actionsManager, 'editActions');

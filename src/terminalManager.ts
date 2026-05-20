@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Action } from './types';
+import { Action, getCommands } from './types';
 
 /**
  * VS Code 設定から読み取るターミナルプロファイル設定の一部です。
@@ -14,8 +14,18 @@ interface TerminalProfileConfig {
  * 次に検出される一致コマンド実行へ紐づける保留情報です。
  */
 interface PendingExecution {
-  action: Action;
+  sequence: CommandSequence;
   expectedCommand: string;
+}
+
+/**
+ * 1 回のアクション実行に含まれる逐次コマンド列です。
+ */
+interface CommandSequence {
+  action: Action;
+  terminal: vscode.Terminal;
+  remainingCommands: string[];
+  started: boolean;
 }
 
 /**
@@ -72,7 +82,7 @@ export class TerminalManager {
 
   private readonly trackedExecutions = new WeakMap<
     vscode.TerminalShellExecution,
-    Action
+    PendingExecution
   >();
 
   private readonly disposables: vscode.Disposable[] = [];
@@ -107,15 +117,15 @@ export class TerminalManager {
    * 変数を解決し、既存または新規ターミナルでアクションを実行します。
    */
   async runAction(action: Action): Promise<void> {
-    const resolvedCommand = await this.resolveCommand(action);
-    if (resolvedCommand === undefined) {
+    const resolvedCommands = await this.resolveCommands(action);
+    if (!resolvedCommands || resolvedCommands.length === 0) {
       return;
     }
 
     if (action.confirmBeforeRun) {
       const answer = await vscode.window.showWarningMessage(
         vscode.l10n.t('Run action "{0}"?', action.name),
-        { modal: true, detail: resolvedCommand },
+        { modal: true, detail: resolvedCommands.join('\n') },
         vscode.l10n.t('Run')
       );
       if (answer !== vscode.l10n.t('Run')) {
@@ -146,8 +156,13 @@ export class TerminalManager {
       }
     }
 
-    this.enqueuePendingExecution(terminal, action, resolvedCommand);
-    terminal.sendText(resolvedCommand);
+    const sequence: CommandSequence = {
+      action,
+      terminal,
+      remainingCommands: [...resolvedCommands],
+      started: false,
+    };
+    this.sendNextCommand(sequence);
   }
 
   /**
@@ -178,13 +193,25 @@ export class TerminalManager {
   }
 
   /**
-   * 実行前にアクションコマンド内の対話変数を解決します。
+   * 実行前にアクションコマンド列内の対話変数を解決します。
    */
-  private async resolveCommand(action: Action): Promise<string | undefined> {
-    const matches = [...action.command.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g)];
+  private async resolveCommands(action: Action): Promise<string[] | undefined> {
+    const commands = getCommands(action)
+      .map(command => command.trim())
+      .filter(Boolean);
+    if (commands.length === 0) {
+      vscode.window.showErrorMessage(
+        vscode.l10n.t('Action "{0}" has no runnable commands.', action.name)
+      );
+      return undefined;
+    }
+
+    const matches = commands.flatMap(command => [
+      ...command.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g),
+    ]);
     const variableNames = [...new Set(matches.map(match => match[1]))];
     if (variableNames.length === 0) {
-      return action.command;
+      return commands;
     }
 
     const values = new Map<string, string>();
@@ -271,25 +298,38 @@ export class TerminalManager {
       return undefined;
     }
 
-    let resolvedCommand = action.command;
-    for (const [name, value] of values) {
-      const placeholder = `\${${name}}`;
-      resolvedCommand = resolvedCommand.split(placeholder).join(value);
+    return commands.map(command => {
+      let resolvedCommand = command;
+      for (const [name, value] of values) {
+        const placeholder = `\${${name}}`;
+        resolvedCommand = resolvedCommand.split(placeholder).join(value);
+      }
+      return resolvedCommand;
+    });
+  }
+
+  /**
+   * 逐次実行中の次コマンドをキューへ積んで送信します。
+   */
+  private sendNextCommand(sequence: CommandSequence): void {
+    const nextCommand = sequence.remainingCommands.shift();
+    if (!nextCommand) {
+      return;
     }
-    return resolvedCommand;
+    this.enqueuePendingExecution(sequence, nextCommand);
+    sequence.terminal.sendText(nextCommand);
   }
 
   /**
    * VS Code が一致するシェル実行開始イベントを返すまでアクションを待機キューへ積みます。
    */
   private enqueuePendingExecution(
-    terminal: vscode.Terminal,
-    action: Action,
+    sequence: CommandSequence,
     expectedCommand: string
   ): void {
-    const queue = this.pendingExecutions.get(terminal) ?? [];
-    queue.push({ action, expectedCommand: expectedCommand.trim() });
-    this.pendingExecutions.set(terminal, queue);
+    const queue = this.pendingExecutions.get(sequence.terminal) ?? [];
+    queue.push({ sequence, expectedCommand: expectedCommand.trim() });
+    this.pendingExecutions.set(sequence.terminal, queue);
   }
 
   /**
@@ -316,19 +356,28 @@ export class TerminalManager {
       return;
     }
 
-    this.trackedExecutions.set(event.execution, matched.action);
-    this.callbacks.onRunning?.(matched.action);
+    this.trackedExecutions.set(event.execution, matched);
+    if (!matched.sequence.started) {
+      matched.sequence.started = true;
+      this.callbacks.onRunning?.(matched.sequence.action);
+    }
   }
 
   /**
    * シェル実行終了時に追跡中アクションの状態更新を完了します。
    */
   private handleExecutionEnd(event: vscode.TerminalShellExecutionEndEvent): void {
-    const action = this.trackedExecutions.get(event.execution);
-    if (!action) {
+    const pending = this.trackedExecutions.get(event.execution);
+    if (!pending) {
       return;
     }
-    this.callbacks.onCompleted?.(action, event.exitCode);
+
+    if (event.exitCode === 0 && pending.sequence.remainingCommands.length > 0) {
+      this.sendNextCommand(pending.sequence);
+      return;
+    }
+
+    this.callbacks.onCompleted?.(pending.sequence.action, event.exitCode);
   }
 
   /**
