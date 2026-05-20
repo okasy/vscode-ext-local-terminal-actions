@@ -223,6 +223,39 @@ test('initActionsFile recreates schema when adjusting an existing actions.json',
   assert.equal(fs.existsSync(fixture.schemaDestPath), true);
 });
 
+test('initActionsFile applies the same migration rules as startup normalization', t => {
+  const fixture = createFixture({
+    note: 'keep me',
+    sections: ['beta', '', 'beta', 'unused'],
+    commonOnNewTerminalCommand: '  npm install  ',
+    newTerminalDelaySeconds: 0,
+    actions: [
+      {
+        id: 'a',
+        section: 'beta',
+        name: 'Build',
+        command: '  npm run build  ',
+      },
+    ],
+  });
+  t.after(() => {
+    fs.rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  });
+
+  assert.equal(fixture.manager.initActionsFile(), 'updated');
+
+  const saved = fixture.readData();
+  assert.equal(saved.$schema, './actions.schema.json');
+  assert.equal(saved.note, 'keep me');
+  assert.deepEqual(saved.sections, ['beta']);
+  assert.equal(saved.commonOnNewTerminalCommand, 'npm install');
+  assert.equal('newTerminalDelaySeconds' in saved, false);
+  assert.equal('command' in (saved.actions as Array<Record<string, unknown>>)[0], false);
+  assert.deepEqual((saved.actions as Array<{ commands: string[] }>)[0].commands, [
+    'npm run build',
+  ]);
+});
+
 test('getters normalize ids, sections, and optional settings when reading', t => {
   const fixture = createFixture({
     sections: ['beta', '', 'beta', 'unused'],
@@ -252,6 +285,9 @@ test('getters normalize ids, sections, and optional settings when reading', t =>
 
   const saved = fixture.readData();
   assert.equal(new Set((saved.actions as Action[]).map(action => action.id)).size, 3);
+  assert.deepEqual(saved.sections, ['beta', 'alpha']);
+  assert.equal(saved.commonOnNewTerminalCommand, 'npm install');
+  assert.equal('newTerminalDelaySeconds' in saved, false);
 });
 
 test('normalizePersistedData migrates legacy command key and string value to commands on startup', t => {

@@ -220,23 +220,29 @@ export class ActionsManager {
    * 設定ファイル調整コマンド向けにトップレベルキー順と actions 順を正規化します。
    */
   private buildCanonicalInitFileData(raw: Record<string, unknown>): Record<string, unknown> {
-    const sections = Array.isArray(raw.sections)
-      ? raw.sections.filter((section): section is string => typeof section === 'string')
-      : [];
-    const rawActions = Array.isArray(raw.actions) ? raw.actions : [];
-    const { actions } = this.normalizeActions(rawActions);
+    const { data } = this.normalizeStoredData(raw as Partial<ActionsData> & {
+      actions?: unknown[];
+    });
 
     const canonical: Record<string, unknown> = {
       $schema:
         typeof raw.$schema === 'string' && raw.$schema.trim().length > 0
           ? raw.$schema
           : './actions.schema.json',
-      sections,
-      actions: this.sortActionsBySectionOrder(actions, sections),
+      sections: data.sections ?? [],
+      actions: this.sortActionsBySectionOrder(data.actions, data.sections),
+      commonOnNewTerminalCommand: data.commonOnNewTerminalCommand,
+      newTerminalDelaySeconds: data.newTerminalDelaySeconds,
     };
 
     for (const key of Object.keys(raw)) {
-      if (key === '$schema' || key === 'sections' || key === 'actions') {
+      if (
+        key === '$schema' ||
+        key === 'sections' ||
+        key === 'actions' ||
+        key === 'commonOnNewTerminalCommand' ||
+        key === 'newTerminalDelaySeconds'
+      ) {
         continue;
       }
       canonical[key] = raw[key];
@@ -262,28 +268,7 @@ export class ActionsManager {
       const rawData = JSON.parse(content) as Partial<ActionsData> & {
         actions?: unknown[];
       };
-      const rawActions = Array.isArray(rawData.actions) ? rawData.actions : [];
-      const { actions, changed } = this.normalizeActions(rawActions);
-      const sections = this.normalizeSections(
-        Array.isArray(rawData.sections) ? rawData.sections : undefined,
-        actions
-      );
-      const commonOnNewTerminalCommand =
-        typeof rawData.commonOnNewTerminalCommand === 'string'
-          ? rawData.commonOnNewTerminalCommand.trim() || undefined
-          : undefined;
-      const newTerminalDelaySeconds =
-        typeof rawData.newTerminalDelaySeconds === 'number' &&
-        Number.isFinite(rawData.newTerminalDelaySeconds) &&
-        rawData.newTerminalDelaySeconds > 0
-          ? rawData.newTerminalDelaySeconds
-          : undefined;
-      const normalized: ActionsData = {
-        actions,
-        sections,
-        commonOnNewTerminalCommand,
-        newTerminalDelaySeconds,
-      };
+      const { data: normalized, changed } = this.normalizeStoredData(rawData);
       if (changed) {
         this.writeDataFile(normalized, syncSchemaFile ? 'always' : 'preserve-missing');
       }
@@ -465,6 +450,65 @@ export class ActionsManager {
     });
 
     return { actions: normalized, changed };
+  }
+
+  /**
+   * 保存済みデータを起動時・手動調整時の共通ルールで正規化します。
+   */
+  private normalizeStoredData(
+    rawData: Partial<ActionsData> & { actions?: unknown[] }
+  ): { data: ActionsData; changed: boolean } {
+    const rawActions = Array.isArray(rawData.actions) ? rawData.actions : [];
+    const normalizedActions = this.normalizeActions(rawActions);
+
+    const hasSections = Object.prototype.hasOwnProperty.call(rawData, 'sections');
+    const rawSections = Array.isArray(rawData.sections)
+      ? rawData.sections.filter((section): section is string => typeof section === 'string')
+      : undefined;
+    const sections = this.normalizeSections(rawSections, normalizedActions.actions);
+
+    const hasCommonOnNewTerminalCommand = Object.prototype.hasOwnProperty.call(
+      rawData,
+      'commonOnNewTerminalCommand'
+    );
+    const commonOnNewTerminalCommand =
+      typeof rawData.commonOnNewTerminalCommand === 'string'
+        ? rawData.commonOnNewTerminalCommand.trim() || undefined
+        : undefined;
+
+    const hasNewTerminalDelaySeconds = Object.prototype.hasOwnProperty.call(
+      rawData,
+      'newTerminalDelaySeconds'
+    );
+    const newTerminalDelaySeconds =
+      typeof rawData.newTerminalDelaySeconds === 'number' &&
+      Number.isFinite(rawData.newTerminalDelaySeconds) &&
+      rawData.newTerminalDelaySeconds > 0
+        ? rawData.newTerminalDelaySeconds
+        : undefined;
+
+    const sectionsChanged =
+      hasSections && JSON.stringify(rawSections ?? []) !== JSON.stringify(sections);
+    const commonOnNewTerminalCommandChanged =
+      hasCommonOnNewTerminalCommand &&
+      rawData.commonOnNewTerminalCommand !== commonOnNewTerminalCommand;
+    const newTerminalDelaySecondsChanged =
+      hasNewTerminalDelaySeconds &&
+      rawData.newTerminalDelaySeconds !== newTerminalDelaySeconds;
+
+    return {
+      data: {
+        actions: normalizedActions.actions,
+        sections,
+        commonOnNewTerminalCommand,
+        newTerminalDelaySeconds,
+      },
+      changed:
+        normalizedActions.changed ||
+        sectionsChanged ||
+        commonOnNewTerminalCommandChanged ||
+        newTerminalDelaySecondsChanged,
+    };
   }
 
   /**
